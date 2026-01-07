@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw, BarChart3, Table2, Trophy, Keyboard } from 'lucide-react'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,6 +19,7 @@ import { ExportMenu } from '@/components/export-menu'
 import { FilterPresets } from '@/components/filter-presets'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BenchmarksTable } from '@/components/benchmarks-table'
+import { LinkPerformanceTracker } from '@/components/link-performance-tracker'
 import { EmptyState } from '@/components/empty-state'
 import { SuggestionsBox } from '@/components/suggestions-box'
 import { HealthScore } from '@/components/health-score'
@@ -422,6 +423,10 @@ export default function Dashboard() {
                     <Trophy className="h-4 w-4" />
                     Rankings
                   </TabsTrigger>
+                  <TabsTrigger value="weekly" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 transition-all">
+                    <GitCompare className="h-4 w-4" />
+                    Weekly Changes
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="table" className="space-y-4">
@@ -490,6 +495,10 @@ export default function Dashboard() {
                   ) : (
                     <EmptyState type="no-data" />
                   )}
+                </TabsContent>
+
+                <TabsContent value="weekly" className="space-y-4">
+                  <LinkPerformanceTracker currentData={filteredData} />
                 </TabsContent>
               </Tabs>
 
