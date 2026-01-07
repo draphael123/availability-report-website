@@ -13,6 +13,8 @@ A Next.js web application that displays and analyzes data from a Google Sheet. B
 - **Dual Data Source**: Supports Google Sheets API (private sheets) or CSV export (public sheets)
 - **Caching**: Server-side caching to reduce API calls
 - **Responsive**: Works on desktop and mobile
+- **Historical Tracking**: Automatic daily snapshots with day/week/month comparisons
+- **Real-time Updates**: Data refreshes every 10 seconds
 
 ## Tech Stack
 
@@ -118,6 +120,20 @@ If no API key is provided, the app falls back to fetching via Google's CSV expor
    - Add `SHEET_ID` and `SHEET_GID` if different from defaults
 
 4. Deploy!
+
+### Setting Up Historical Data (Vercel KV)
+
+The app uses Vercel KV to store daily snapshots for historical comparisons:
+
+1. In your Vercel project dashboard, go to **Storage** tab
+2. Click **Create Database** → **KV**
+3. Follow the prompts to create a KV database
+4. Link it to your project (Vercel will automatically add the required environment variables)
+5. **Optional**: Add a `CRON_SECRET` environment variable for secure cron job access
+
+The cron job runs daily at midnight UTC and automatically saves a snapshot. You can also manually trigger snapshots from the dashboard using the "Snapshot Now" button.
+
+**Note**: Vercel KV is on the free tier limited to 30,000 requests/month and 256MB storage, which is more than enough for daily snapshots.
 
 ## Project Structure
 
