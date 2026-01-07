@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, BarChart3, Table2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Filters } from '@/components/filters'
 import { DataTable } from '@/components/data-table'
 import { RowDrawer } from '@/components/row-drawer'
@@ -11,6 +13,13 @@ import { Charts } from '@/components/charts'
 import { ErrorState } from '@/components/error-state'
 import { LoadingSkeleton } from '@/components/loading-skeleton'
 import { HeroSection } from '@/components/hero-section'
+import { AlertsPanel } from '@/components/alerts-panel'
+import { ExportMenu } from '@/components/export-menu'
+import { FilterPresets } from '@/components/filter-presets'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { BenchmarksTable } from '@/components/benchmarks-table'
+import { EmptyState } from '@/components/empty-state'
+import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
   getUniqueColumnValues, 
@@ -18,6 +27,9 @@ import {
   calculateWeeklyTrend,
   calculateSummaryStats 
 } from '@/lib/sheet-parser'
+import { detectAnomalies, calculateBenchmarks, Alert } from '@/lib/history'
+import { updateURLWithFilters, getFiltersFromURL } from '@/lib/url-state'
+import { downloadCSV } from '@/lib/export'
 
 const initialFilters: FilterState = {
   globalSearch: '',
@@ -33,7 +45,11 @@ const initialFilters: FilterState = {
 const AUTO_REFRESH_INTERVAL = 30 * 1000
 
 export default function Dashboard() {
+  const router = useRouter()
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  
   const [data, setData] = useState<SheetDataResponse | null>(null)
+  const [previousData, setPreviousData] = useState<ParsedSheetRow[] | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [troubleshooting, setTroubleshooting] = useState<string[]>([])
@@ -41,6 +57,20 @@ export default function Dashboard() {
   const [selectedRow, setSelectedRow] = useState<ParsedSheetRow | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null)
+  const [alerts, setAlerts] = useState<Alert[]>([])
+
+  // Load filters from URL on mount
+  useEffect(() => {
+    const urlFilters = getFiltersFromURL()
+    if (Object.keys(urlFilters).length > 0) {
+      setFilters(prev => ({ ...prev, ...urlFilters }))
+    }
+  }, [])
+
+  // Update URL when filters change
+  useEffect(() => {
+    updateURLWithFilters(filters)
+  }, [filters])
 
   const fetchData = useCallback(async (forceRefresh = false, silent = false) => {
     if (!silent) {
@@ -67,6 +97,18 @@ export default function Dashboard() {
             scrapedAt: row.scrapedAt ? new Date(row.scrapedAt) : null,
           })),
         }
+        
+        // Store previous data for comparison
+        if (data?.data) {
+          setPreviousData(data.data)
+        }
+        
+        // Detect anomalies
+        if (previousData) {
+          const newAlerts = detectAnomalies(processedData.data, previousData)
+          setAlerts(prev => [...newAlerts, ...prev].slice(0, 50)) // Keep last 50 alerts
+        }
+        
         setData(processedData)
         setLastRefreshed(formatDateTime(new Date()))
       }
@@ -81,12 +123,12 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [data?.data, previousData])
 
   // Initial fetch
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh polling
   useEffect(() => {
@@ -96,6 +138,24 @@ export default function Dashboard() {
 
     return () => clearInterval(interval)
   }, [fetchData])
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: () => {
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+      searchInput?.focus()
+    },
+    onRefresh: () => fetchData(true),
+    onExport: () => {
+      if (data && filteredData.length > 0) {
+        downloadCSV(filteredData, data.headers)
+      }
+    },
+    onToggleTheme: () => {
+      const themeButton = document.querySelector('[title*="mode"]') as HTMLButtonElement
+      themeButton?.click()
+    },
+  })
 
   // Get unique values for filter dropdowns
   const categories = useMemo(() => {
@@ -183,139 +243,226 @@ export default function Dashboard() {
     return calculateSummaryStats(data.data)
   }, [data?.data])
 
+  // Calculate benchmarks
+  const benchmarks = useMemo(() => {
+    return calculateBenchmarks(filteredData, filters.categoryType)
+  }, [filteredData, filters.categoryType])
+
   const handleRowClick = (row: ParsedSheetRow) => {
     setSelectedRow(row)
     setIsDrawerOpen(true)
+  }
+
+  const handleViewLinkDetail = (row: ParsedSheetRow) => {
+    const name = row.raw['Name'] || row.raw['name'] || ''
+    if (name) {
+      router.push(`/link/${encodeURIComponent(name)}`)
+    }
   }
 
   const handleRefresh = () => {
     fetchData(true)
   }
 
+  const handleApplyPreset = (presetFilters: Partial<FilterState>) => {
+    setFilters(prev => ({ ...initialFilters, ...presetFilters }))
+  }
+
+  const clearFilters = () => {
+    setFilters(initialFilters)
+  }
+
   // Error state
   if (error && !isLoading) {
     return (
-      <main className="min-h-screen bg-background">
-        <div className="container py-8">
-          <HeroSection stats={null} lastRefreshed={null} />
-          <ErrorState
-            error={error}
-            troubleshooting={troubleshooting}
-            onRetry={handleRefresh}
-            isLoading={isLoading}
-          />
-        </div>
-      </main>
+      <TooltipProvider>
+        <main className="min-h-screen bg-background">
+          <div className="container py-8">
+            <HeroSection stats={null} lastRefreshed={null} />
+            <ErrorState
+              error={error}
+              troubleshooting={troubleshooting}
+              onRetry={handleRefresh}
+              isLoading={isLoading}
+            />
+          </div>
+        </main>
+      </TooltipProvider>
     )
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container py-6 space-y-6">
-        {/* Hero Section with Stats */}
-        <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
+    <TooltipProvider>
+      <main className="min-h-screen bg-background">
+        <div className="container py-6 space-y-6">
+          {/* Top bar with theme toggle */}
+          <div className="flex justify-end gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Keyboard className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="p-3">
+                <KeyboardShortcutsHelp />
+              </TooltipContent>
+            </Tooltip>
+            <ThemeToggle />
+          </div>
 
-        {isLoading && !data ? (
-          <LoadingSkeleton />
-        ) : data ? (
-          <>
-            {/* Filters */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <Filters
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  categories={categories}
-                  locations={locations}
-                />
-              </div>
-              <Button onClick={handleRefresh} disabled={isLoading} className="gradient-primary text-white shadow-lg">
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Refreshing...' : 'Refresh Now'}
-              </Button>
-            </div>
+          {/* Hero Section with Stats */}
+          <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
 
-            {/* Tabs for Table and Charts */}
-            <Tabs defaultValue="table" className="space-y-4">
-              <TabsList className="bg-muted/50">
-                <TabsTrigger value="table" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Table2 className="h-4 w-4" />
-                  Data Table
-                </TabsTrigger>
-                <TabsTrigger value="charts" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <BarChart3 className="h-4 w-4" />
-                  Charts & Analytics
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="table" className="space-y-4">
-                {/* Result count */}
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Showing <span className="font-semibold text-foreground">{filteredData.length}</span> of{' '}
-                    <span className="font-semibold text-foreground">{data.data.length}</span> rows
-                    {filters.categoryType !== 'all' && (
-                      <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                        {filters.categoryType}
-                      </span>
-                    )}
-                    {filters.errorsOnly && (
-                      <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">
-                        Errors only
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Auto-refreshes every 30 seconds
-                  </div>
-                </div>
-
-                <DataTable
-                  data={filteredData}
-                  headers={data.headers}
-                  onRowClick={handleRowClick}
-                />
-              </TabsContent>
-
-              <TabsContent value="charts">
-                {chartData.length > 0 ? (
-                  <Charts 
-                    data={chartData} 
-                    weeklyTrend={weeklyTrend}
-                    categoryType={filters.categoryType}
-                  />
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No data available for charts
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-
-            {/* Row Detail Drawer */}
-            <RowDrawer
-              row={selectedRow}
-              open={isDrawerOpen}
-              onClose={() => setIsDrawerOpen(false)}
-              headers={data.headers}
+          {/* Alerts Panel */}
+          {alerts.length > 0 && (
+            <AlertsPanel 
+              alerts={alerts} 
+              onDismiss={(id) => setAlerts(prev => prev.filter(a => a.id !== id))}
             />
-          </>
-        ) : null}
-      </div>
+          )}
 
-      {/* Footer */}
-      <footer className="border-t mt-12 py-6 bg-muted/30">
-        <div className="container text-center text-sm text-muted-foreground">
-          <p>
-            <strong>Oncehub Availability Report</strong> — Automated monitoring for healthcare appointment availability
-          </p>
-          <p className="mt-1">
-            Data sourced from Google Sheets • Auto-refreshes every 30 seconds • 
-            {data?.source === 'api' ? ' Using Google Sheets API' : ' Using CSV export'}
-          </p>
+          {isLoading && !data ? (
+            <LoadingSkeleton />
+          ) : data ? (
+            <>
+              {/* Filters */}
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex-1 w-full">
+                  <Filters
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    categories={categories}
+                    locations={locations}
+                  />
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FilterPresets 
+                    currentFilters={filters} 
+                    onApplyPreset={handleApplyPreset}
+                  />
+                  <ExportMenu 
+                    data={filteredData}
+                    headers={data.headers}
+                    filteredCount={filteredData.length}
+                    totalCount={data.data.length}
+                  />
+                  <Button onClick={handleRefresh} disabled={isLoading} className="gradient-primary text-white shadow-lg">
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tabs for Table, Charts, and Benchmarks */}
+              <Tabs defaultValue="table" className="space-y-4">
+                <TabsList className="bg-muted/50">
+                  <TabsTrigger value="table" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Table2 className="h-4 w-4" />
+                    Data Table
+                  </TabsTrigger>
+                  <TabsTrigger value="charts" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <BarChart3 className="h-4 w-4" />
+                    Charts
+                  </TabsTrigger>
+                  <TabsTrigger value="benchmarks" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Trophy className="h-4 w-4" />
+                    Rankings
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="table" className="space-y-4">
+                  {/* Result count */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Showing <span className="font-semibold text-foreground">{filteredData.length}</span> of{' '}
+                      <span className="font-semibold text-foreground">{data.data.length}</span> rows
+                      {filters.categoryType !== 'all' && (
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                          {filters.categoryType}
+                        </span>
+                      )}
+                      {filters.errorsOnly && (
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive">
+                          Errors only
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Auto-refreshes every 30s • Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">/</kbd> to search
+                    </div>
+                  </div>
+
+                  {filteredData.length > 0 ? (
+                    <DataTable
+                      data={filteredData}
+                      headers={data.headers}
+                      onRowClick={handleRowClick}
+                    />
+                  ) : (
+                    <EmptyState
+                      type="no-results"
+                      onAction={clearFilters}
+                      actionLabel="Clear Filters"
+                    />
+                  )}
+                </TabsContent>
+
+                <TabsContent value="charts">
+                  {chartData.length > 0 ? (
+                    <Charts 
+                      data={chartData} 
+                      weeklyTrend={weeklyTrend}
+                      categoryType={filters.categoryType}
+                    />
+                  ) : (
+                    <EmptyState type="no-data" />
+                  )}
+                </TabsContent>
+
+                <TabsContent value="benchmarks" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Performance Rankings</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Links ranked by days out (lower is better)
+                        {filters.categoryType !== 'all' && ` • Filtered to ${filters.categoryType}`}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {benchmarks.length > 0 ? (
+                    <BenchmarksTable benchmarks={benchmarks} showTop={20} />
+                  ) : (
+                    <EmptyState type="no-data" />
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* Row Detail Drawer */}
+              <RowDrawer
+                row={selectedRow}
+                open={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                headers={data.headers}
+              />
+            </>
+          ) : null}
         </div>
-      </footer>
-    </main>
+
+        {/* Footer */}
+        <footer className="border-t mt-12 py-6 bg-muted/30">
+          <div className="container text-center text-sm text-muted-foreground">
+            <p>
+              <strong>Oncehub Availability Report</strong> — Automated monitoring for healthcare appointment availability
+            </p>
+            <p className="mt-1">
+              Data sourced from Google Sheets • Auto-refreshes every 30 seconds • 
+              {data?.source === 'api' ? ' Using Google Sheets API' : ' Using CSV export'}
+            </p>
+          </div>
+        </footer>
+      </main>
+    </TooltipProvider>
   )
 }
 
