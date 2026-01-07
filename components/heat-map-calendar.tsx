@@ -85,19 +85,15 @@ export function HeatMapCalendar({ currentData = [] }: HeatMapCalendarProps) {
         errorCount = historyItem.summary.errorCount
         avgDaysOut = historyItem.summary.avgDaysOut
 
-        // Calculate score based on availability (avg days out) and error rate
-        const errorRate = totalRows > 0 ? errorCount / totalRows : 0
-        
-        if (avgDaysOut !== null && avgDaysOut <= 7 && errorRate < 0.05) {
-          score = 'excellent'
-        } else if (avgDaysOut !== null && avgDaysOut <= 14 && errorRate < 0.10) {
-          score = 'good'
-        } else if (avgDaysOut !== null && avgDaysOut <= 21 && errorRate < 0.20) {
-          score = 'okay'
-        } else if (avgDaysOut !== null && avgDaysOut <= 30) {
-          score = 'poor'
+        // Calculate score based on availability (avg days out)
+        if (avgDaysOut !== null && avgDaysOut < 2) {
+          score = 'excellent' // Green: under 2 days
+        } else if (avgDaysOut !== null && avgDaysOut < 4) {
+          score = 'good' // Blue: under 4 days
+        } else if (avgDaysOut !== null && avgDaysOut < 7) {
+          score = 'okay' // Orange: under 7 days
         } else if (totalRows > 0) {
-          score = 'critical'
+          score = 'critical' // Red: 7+ days
         }
       }
 
@@ -126,18 +122,18 @@ export function HeatMapCalendar({ currentData = [] }: HeatMapCalendarProps) {
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const scoreColors: Record<DayData['score'], string> = {
-    excellent: 'bg-emerald-500 dark:bg-emerald-400',
-    good: 'bg-blue-500 dark:bg-blue-400',
-    okay: 'bg-amber-500 dark:bg-amber-400',
-    poor: 'bg-orange-500 dark:bg-orange-400',
-    critical: 'bg-red-500 dark:bg-red-400',
+    excellent: 'bg-emerald-500 dark:bg-emerald-400', // Green: <2 days
+    good: 'bg-blue-500 dark:bg-blue-400',           // Blue: <4 days
+    okay: 'bg-orange-500 dark:bg-orange-400',       // Orange: <7 days
+    poor: 'bg-orange-600 dark:bg-orange-500',       // (not used)
+    critical: 'bg-red-500 dark:bg-red-400',         // Red: 7+ days
     empty: 'bg-muted/50',
   }
 
   const scoreShadows: Record<DayData['score'], string> = {
     excellent: 'shadow-emerald-500/50',
     good: 'shadow-blue-500/50',
-    okay: 'shadow-amber-500/50',
+    okay: 'shadow-orange-500/50',
     poor: 'shadow-orange-500/50',
     critical: 'shadow-red-500/50',
     empty: '',
@@ -181,19 +177,19 @@ export function HeatMapCalendar({ currentData = [] }: HeatMapCalendarProps) {
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-emerald-500" />
-                <span className="text-muted-foreground">≤7 days</span>
+                <span className="text-muted-foreground">&lt;2 days</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-500" />
-                <span className="text-muted-foreground">≤14 days</span>
+                <span className="text-muted-foreground">&lt;4 days</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-amber-500" />
-                <span className="text-muted-foreground">≤21 days</span>
+                <div className="w-3 h-3 rounded bg-orange-500" />
+                <span className="text-muted-foreground">&lt;7 days</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-red-500" />
-                <span className="text-muted-foreground">30+ days</span>
+                <span className="text-muted-foreground">7+ days</span>
               </div>
             </div>
 
@@ -267,10 +263,10 @@ export function HeatMapCalendar({ currentData = [] }: HeatMapCalendarProps) {
             {daysWithData > 0 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t text-xs text-muted-foreground">
                 <span>
-                  {calendarData.filter(d => d.score === 'excellent' || d.score === 'good').length} days with good availability
+                  {calendarData.filter(d => d.score === 'excellent' || d.score === 'good').length} days under 4 days wait
                 </span>
                 <span>
-                  {calendarData.filter(d => d.score === 'poor' || d.score === 'critical').length} days need attention
+                  {calendarData.filter(d => d.score === 'critical').length} days at 7+ days wait
                 </span>
               </div>
             )}
