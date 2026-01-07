@@ -87,9 +87,9 @@ export function HistoricalComparison() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="glass">
         <CardContent className="py-8 text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto" />
           <p className="text-muted-foreground mt-2">Loading historical data...</p>
         </CardContent>
       </Card>
@@ -98,14 +98,16 @@ export function HistoricalComparison() {
 
   if (!data?.hasHistory) {
     return (
-      <Card className="border-dashed">
+      <Card className="border-dashed border-2 border-purple-300 dark:border-purple-700 glass">
         <CardContent className="py-8 text-center">
-          <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Historical Data Yet</h3>
+          <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <Database className="h-8 w-8 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2 text-gradient-primary">No Historical Data Yet</h3>
           <p className="text-muted-foreground mb-4">
             {data?.message || 'Take your first snapshot to start tracking changes over time.'}
           </p>
-          <Button onClick={takeSnapshot} disabled={snapshotting}>
+          <Button onClick={takeSnapshot} disabled={snapshotting} className="gradient-primary text-white shadow-lg shadow-purple-500/30">
             {snapshotting ? 'Taking Snapshot...' : 'Take First Snapshot'}
           </Button>
         </CardContent>
@@ -137,7 +139,13 @@ export function HistoricalComparison() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3" />
           <span>{data.availableDates} snapshots available</span>
-          <Button variant="outline" size="sm" onClick={takeSnapshot} disabled={snapshotting}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={takeSnapshot} 
+            disabled={snapshotting}
+            className="border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+          >
             {snapshotting ? 'Saving...' : 'Snapshot Now'}
           </Button>
         </div>
@@ -173,9 +181,11 @@ export function HistoricalComparison() {
           />
         </div>
       ) : (
-        <Card>
+        <Card className="glass">
           <CardContent className="py-6 text-center text-muted-foreground">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <div className="h-12 w-12 mx-auto mb-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-blue-500" />
+            </div>
             <p>Not enough historical data for {period} comparison.</p>
             <p className="text-xs mt-1">Need at least 2 snapshots.</p>
           </CardContent>

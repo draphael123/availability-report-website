@@ -294,8 +294,11 @@ export default function Dashboard() {
 
   return (
     <TooltipProvider>
-      <main className="min-h-screen bg-background">
-        <div className="container py-6 space-y-6">
+      <main className="min-h-screen bg-background relative">
+        {/* Animated background */}
+        <div className="animated-bg" />
+        
+        <div className="container py-6 space-y-6 relative z-10">
           {/* Top bar with theme toggle */}
           <div className="flex justify-end gap-2">
             <Tooltip>
@@ -350,7 +353,7 @@ export default function Dashboard() {
                     filteredCount={filteredData.length}
                     totalCount={data.data.length}
                   />
-                  <Button onClick={handleRefresh} disabled={isLoading} className="gradient-primary text-white shadow-lg">
+                  <Button onClick={handleRefresh} disabled={isLoading} className="gradient-primary text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-shadow btn-glow">
                     <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
@@ -359,16 +362,16 @@ export default function Dashboard() {
 
               {/* Tabs for Table, Charts, and Benchmarks */}
               <Tabs defaultValue="table" className="space-y-4">
-                <TabsList className="bg-muted/50">
-                  <TabsTrigger value="table" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <TabsList className="bg-muted/50 p-1 shadow-lg">
+                  <TabsTrigger value="table" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 transition-all">
                     <Table2 className="h-4 w-4" />
                     Data Table
                   </TabsTrigger>
-                  <TabsTrigger value="charts" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="charts" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 transition-all">
                     <BarChart3 className="h-4 w-4" />
                     Charts
                   </TabsTrigger>
-                  <TabsTrigger value="benchmarks" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <TabsTrigger value="benchmarks" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/30 transition-all">
                     <Trophy className="h-4 w-4" />
                     Rankings
                   </TabsTrigger>
@@ -454,15 +457,28 @@ export default function Dashboard() {
         </div>
 
         {/* Footer */}
-        <footer className="border-t mt-12 py-6 bg-muted/30">
-          <div className="container text-center text-sm text-muted-foreground">
-            <p>
-              <strong>Oncehub Availability Report</strong> — Automated monitoring for healthcare appointment availability
+        <footer className="border-t mt-12 py-8 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 relative z-10">
+          <div className="container text-center">
+            <p className="text-lg font-semibold text-gradient-primary">
+              Oncehub Availability Report
             </p>
-            <p className="mt-1">
-              Data sourced from Google Sheets • Auto-refreshes every 10 seconds • 
-              {data?.source === 'api' ? ' Using Google Sheets API' : ' Using CSV export'}
+            <p className="text-sm text-muted-foreground mt-2">
+              Automated monitoring for healthcare appointment availability
             </p>
+            <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"></span>
+                Google Sheets Data Source
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"></span>
+                10s Auto-Refresh
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"></span>
+                {data?.source === 'api' ? 'API Connected' : 'CSV Export'}
+              </span>
+            </div>
           </div>
         </footer>
       </main>
