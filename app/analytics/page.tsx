@@ -296,7 +296,16 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-slate-900 to-pink-950">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+          {/* Simulated Data Notice */}
+          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span>
+              <strong>Note:</strong> Historical data is simulated based on current values. 
+              Set up Vercel KV to enable real historical tracking.
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="ghost" size="sm" className="gap-2">
@@ -305,9 +314,9 @@ export default function AnalyticsPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold text-gradient-primary">Link Analytics</h1>
+              <h1 className="text-3xl font-bold text-gradient-primary">Link Performance Analytics</h1>
               <p className="text-muted-foreground">
-                Detailed performance tracking and trend analysis
+                Day-to-day and week-over-week performance tracking for each link
               </p>
             </div>
           </div>
@@ -480,14 +489,18 @@ export default function AnalyticsPage() {
               </Card>
             ) : (
               <Tabs defaultValue="trends" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4 glass">
+                <TabsList className="grid w-full grid-cols-5 glass">
                   <TabsTrigger value="trends" className="gap-2">
                     <LineChartIcon className="h-4 w-4" />
                     Trends
                   </TabsTrigger>
                   <TabsTrigger value="daily" className="gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    Daily Changes
+                    Day-to-Day
+                  </TabsTrigger>
+                  <TabsTrigger value="weekly" className="gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Week-over-Week
                   </TabsTrigger>
                   <TabsTrigger value="average" className="gap-2">
                     <TrendingUp className="h-4 w-4" />
@@ -598,6 +611,138 @@ export default function AnalyticsPage() {
                             ))}
                           </BarChart>
                         </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Week-over-Week Tab */}
+                <TabsContent value="weekly">
+                  <Card className="glass">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-cyan-500" />
+                        <span className="text-gradient-cool">Week-over-Week Comparison</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Compare this week's performance vs last week for each selected link
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {selectedLinks.map((name, idx) => {
+                          const summary = linkSummaries.find(l => l.name === name)
+                          if (!summary) return null
+                          
+                          // Calculate week-over-week data
+                          const thisWeekData = historicalData.slice(-7)
+                          const lastWeekData = historicalData.slice(-14, -7)
+                          
+                          const thisWeekValues = thisWeekData
+                            .map(d => d[name] as number | null)
+                            .filter((v): v is number => v !== null)
+                          const lastWeekValues = lastWeekData
+                            .map(d => d[name] as number | null)
+                            .filter((v): v is number => v !== null)
+                          
+                          const thisWeekAvg = thisWeekValues.length > 0 
+                            ? thisWeekValues.reduce((a, b) => a + b, 0) / thisWeekValues.length 
+                            : null
+                          const lastWeekAvg = lastWeekValues.length > 0 
+                            ? lastWeekValues.reduce((a, b) => a + b, 0) / lastWeekValues.length 
+                            : null
+                          
+                          const change = thisWeekAvg !== null && lastWeekAvg !== null 
+                            ? thisWeekAvg - lastWeekAvg 
+                            : null
+                          const percentChange = change !== null && lastWeekAvg !== null && lastWeekAvg > 0
+                            ? (change / lastWeekAvg) * 100
+                            : null
+                          
+                          return (
+                            <div 
+                              key={name}
+                              className="p-4 rounded-lg bg-muted/30 border border-muted"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    className="w-4 h-4 rounded-full"
+                                    style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                                  />
+                                  <div>
+                                    <span className="font-medium">{name}</span>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "ml-2 text-[10px]",
+                                        summary.categoryType === 'HRT' && "bg-pink-500/10 text-pink-500",
+                                        summary.categoryType === 'TRT' && "bg-blue-500/10 text-blue-500",
+                                        summary.categoryType === 'Provider' && "bg-purple-500/10 text-purple-500"
+                                      )}
+                                    >
+                                      {summary.categoryType === 'all' ? 'Other' : summary.categoryType}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                {change !== null && (
+                                  <Badge 
+                                    variant="outline"
+                                    className={cn(
+                                      "text-sm font-semibold",
+                                      change < 0 && "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                                      change > 0 && "bg-red-500/20 text-red-400 border-red-500/30",
+                                      change === 0 && "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                    )}
+                                  >
+                                    {change > 0 ? '+' : ''}{change.toFixed(1)}d 
+                                    {percentChange !== null && (
+                                      <span className="ml-1 opacity-75">
+                                        ({percentChange > 0 ? '+' : ''}{percentChange.toFixed(0)}%)
+                                      </span>
+                                    )}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 rounded bg-muted/50">
+                                  <div className="text-xs text-muted-foreground mb-1">Last Week Avg</div>
+                                  <div className="text-2xl font-bold text-muted-foreground">
+                                    {lastWeekAvg !== null ? `${lastWeekAvg.toFixed(1)}d` : '—'}
+                                  </div>
+                                </div>
+                                <div className="p-3 rounded bg-purple-500/10 border border-purple-500/20">
+                                  <div className="text-xs text-purple-400 mb-1">This Week Avg</div>
+                                  <div className="text-2xl font-bold text-purple-400">
+                                    {thisWeekAvg !== null ? `${thisWeekAvg.toFixed(1)}d` : '—'}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Mini sparkline showing the week */}
+                              <div className="mt-3 h-12">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <AreaChart data={thisWeekData}>
+                                    <defs>
+                                      <linearGradient id={`gradient-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={CHART_COLORS[idx % CHART_COLORS.length]} stopOpacity={0.4}/>
+                                        <stop offset="100%" stopColor={CHART_COLORS[idx % CHART_COLORS.length]} stopOpacity={0}/>
+                                      </linearGradient>
+                                    </defs>
+                                    <Area
+                                      type="monotone"
+                                      dataKey={name}
+                                      stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                                      fill={`url(#gradient-${idx})`}
+                                      strokeWidth={2}
+                                    />
+                                  </AreaChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </CardContent>
                   </Card>
