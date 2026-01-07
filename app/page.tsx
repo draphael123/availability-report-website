@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText, CalendarDays } from 'lucide-react'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText, CalendarDays, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -409,6 +409,12 @@ export default function Dashboard() {
                     <Button variant="outline" className="gap-2 border-purple-500/30 hover:bg-purple-500/10">
                       <BarChart3 className="h-4 w-4" />
                       Analytics
+                    </Button>
+                  </Link>
+                  <Link href="/insights">
+                    <Button variant="outline" className="gap-2 border-cyan-500/30 hover:bg-cyan-500/10">
+                      <Zap className="h-4 w-4" />
+                      Insights
                     </Button>
                   </Link>
                   <Button onClick={handleRefresh} disabled={isLoading} className="gradient-primary text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-shadow btn-glow">
