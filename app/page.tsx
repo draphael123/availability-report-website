@@ -21,6 +21,12 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { BenchmarksTable } from '@/components/benchmarks-table'
 import { EmptyState } from '@/components/empty-state'
 import { SuggestionsBox } from '@/components/suggestions-box'
+import { HealthScore } from '@/components/health-score'
+import { StreakCounter } from '@/components/streak-counter'
+import { HeatMapCalendar } from '@/components/heat-map-calendar'
+import { AIInsights } from '@/components/ai-insights'
+import { Achievements } from '@/components/achievements'
+import { Confetti, useConfetti } from '@/components/confetti'
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
@@ -49,6 +55,7 @@ const AUTO_REFRESH_INTERVAL = 10 * 1000
 export default function Dashboard() {
   const router = useRouter()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { isActive: confettiActive, trigger: triggerConfetti } = useConfetti()
   
   const [data, setData] = useState<SheetDataResponse | null>(null)
   const [previousData, setPreviousData] = useState<ParsedSheetRow[] | null>(null)
@@ -60,6 +67,7 @@ export default function Dashboard() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const [previousErrorCount, setPreviousErrorCount] = useState<number | undefined>(undefined)
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -103,12 +111,21 @@ export default function Dashboard() {
         // Store previous data for comparison
         if (data?.data) {
           setPreviousData(data.data)
+          // Track error count for confetti
+          const prevErrors = data.data.filter(r => r.hasError).length
+          setPreviousErrorCount(prevErrors)
         }
         
         // Detect anomalies
         if (previousData) {
           const newAlerts = detectAnomalies(processedData.data, previousData)
           setAlerts(prev => [...newAlerts, ...prev].slice(0, 50)) // Keep last 50 alerts
+        }
+        
+        // Check for confetti celebration (errors went to zero)
+        const currentErrors = processedData.data.filter(r => r.hasError).length
+        if (previousErrorCount !== undefined && previousErrorCount > 0 && currentErrors === 0) {
+          triggerConfetti()
         }
         
         setData(processedData)
@@ -295,6 +312,9 @@ export default function Dashboard() {
 
   return (
     <TooltipProvider>
+      {/* Confetti celebration */}
+      <Confetti active={confettiActive} />
+      
       <main className="min-h-screen bg-background relative">
         {/* Animated background */}
         <div className="animated-bg" />
@@ -317,6 +337,32 @@ export default function Dashboard() {
 
           {/* Hero Section with Stats */}
           <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
+
+          {/* Gamification Section */}
+          {data && filteredData.length > 0 && (
+            <div className="space-y-4">
+              {/* Health Score & Streak */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <HealthScore 
+                  data={filteredData} 
+                  previousErrorCount={previousErrorCount}
+                />
+                <div className="space-y-4">
+                  <StreakCounter 
+                    data={filteredData}
+                    errorCount={filteredData.filter(r => r.hasError).length}
+                  />
+                  <Achievements data={filteredData} />
+                </div>
+              </div>
+
+              {/* AI Insights & Heat Map */}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <AIInsights data={filteredData} categoryType={filters.categoryType} />
+                <HeatMapCalendar data={filteredData} />
+              </div>
+            </div>
+          )}
 
           {/* Historical Comparison */}
           <HistoricalComparison />
