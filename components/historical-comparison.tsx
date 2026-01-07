@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { TrendingUp, TrendingDown, Trophy, AlertTriangle, Sparkles, ExternalLink } from 'lucide-react'
+import { TrendingDown, Trophy, AlertTriangle, Sparkles, ExternalLink, Clock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ParsedSheetRow } from '@/lib/types'
@@ -11,78 +11,56 @@ interface HistoricalComparisonProps {
   data: ParsedSheetRow[]
 }
 
-interface LinkChange {
+interface LinkSummary {
   name: string
   location: string
   url: string
-  currentDaysOut: number
-  previousDaysOut: number
-  change: number
-  changePercent: number
+  daysOut: number
   categoryType: string
 }
 
 export function HistoricalComparison({ data }: HistoricalComparisonProps) {
-  // Generate simulated daily changes based on current data
-  const dailyChanges = useMemo((): LinkChange[] => {
+  // Get links with valid days out data
+  const linksWithData = useMemo((): LinkSummary[] => {
     return data
       .filter(row => row.daysOut !== null)
-      .map(row => {
-        const name = row.raw['Name'] || 'Unknown'
-        const location = row.raw['Location'] || 'Unknown'
-        const url = row.raw['URL'] || ''
-        const currentDaysOut = row.daysOut!
-        
-        // Simulate previous day's value with realistic variation
-        // Some links improve, some worsen, some stay similar
-        const changeRange = Math.max(1, Math.floor(currentDaysOut * 0.3)) // Up to 30% change
-        const simulatedChange = Math.floor(Math.random() * changeRange * 2) - changeRange
-        const previousDaysOut = Math.max(1, currentDaysOut - simulatedChange)
-        const change = currentDaysOut - previousDaysOut
-        const changePercent = previousDaysOut > 0 
-          ? Math.round((change / previousDaysOut) * 100)
-          : 0
-        
-        return {
-          name,
-          location,
-          url,
-          currentDaysOut,
-          previousDaysOut,
-          change,
-          changePercent,
-          categoryType: row.categoryType,
-        }
-      })
+      .map(row => ({
+        name: row.raw['Name'] || 'Unknown',
+        location: row.raw['Location'] || 'Unknown',
+        url: row.raw['URL'] || '',
+        daysOut: row.daysOut!,
+        categoryType: row.categoryType,
+      }))
   }, [data])
 
-  // Get top 10 improvements (biggest decrease in days out)
-  const topImprovements = useMemo(() => {
-    return [...dailyChanges]
-      .filter(c => c.change < 0)
-      .sort((a, b) => a.change - b.change) // Most negative first
+  // Get top 10 best performers (shortest wait times)
+  const topPerformers = useMemo(() => {
+    return [...linksWithData]
+      .sort((a, b) => a.daysOut - b.daysOut) // Lowest days out first
       .slice(0, 10)
-  }, [dailyChanges])
+  }, [linksWithData])
 
-  // Get top 10 declines (biggest increase in days out)
-  const topDeclines = useMemo(() => {
-    return [...dailyChanges]
-      .filter(c => c.change > 0)
-      .sort((a, b) => b.change - a.change) // Most positive first
+  // Get top 10 longest wait times (needs attention)
+  const needsAttention = useMemo(() => {
+    return [...linksWithData]
+      .sort((a, b) => b.daysOut - a.daysOut) // Highest days out first
       .slice(0, 10)
-  }, [dailyChanges])
+  }, [linksWithData])
 
   // Summary stats
   const summaryStats = useMemo(() => {
-    const improving = dailyChanges.filter(c => c.change < 0).length
-    const declining = dailyChanges.filter(c => c.change > 0).length
-    const stable = dailyChanges.filter(c => c.change === 0).length
-    const avgChange = dailyChanges.length > 0
-      ? dailyChanges.reduce((sum, c) => sum + c.change, 0) / dailyChanges.length
-      : 0
+    if (linksWithData.length === 0) {
+      return { excellent: 0, good: 0, fair: 0, poor: 0, avgDaysOut: 0 }
+    }
     
-    return { improving, declining, stable, avgChange }
-  }, [dailyChanges])
+    const excellent = linksWithData.filter(l => l.daysOut < 2).length
+    const good = linksWithData.filter(l => l.daysOut >= 2 && l.daysOut < 4).length
+    const fair = linksWithData.filter(l => l.daysOut >= 4 && l.daysOut < 7).length
+    const poor = linksWithData.filter(l => l.daysOut >= 7).length
+    const avgDaysOut = linksWithData.reduce((sum, l) => sum + l.daysOut, 0) / linksWithData.length
+    
+    return { excellent, good, fair, poor, avgDaysOut }
+  }, [linksWithData])
 
   const today = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -99,57 +77,55 @@ export function HistoricalComparison({ data }: HistoricalComparisonProps) {
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
-                <span className="text-gradient-primary">Daily Changes Summary</span>
+                <span className="text-gradient-primary">Daily Summary</span>
               </CardTitle>
               <CardDescription>{today}</CardDescription>
             </div>
-            <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
-              Simulated
-            </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <div className="text-center p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <div className="text-2xl font-bold text-emerald-400">{summaryStats.improving}</div>
-              <div className="text-xs text-muted-foreground">Improved</div>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-              <div className="text-2xl font-bold text-red-400">{summaryStats.declining}</div>
-              <div className="text-xs text-muted-foreground">Declined</div>
+              <div className="text-2xl font-bold text-emerald-400">{summaryStats.excellent}</div>
+              <div className="text-xs text-muted-foreground">&lt;2 days</div>
             </div>
             <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <div className="text-2xl font-bold text-blue-400">{summaryStats.stable}</div>
-              <div className="text-xs text-muted-foreground">Stable</div>
+              <div className="text-2xl font-bold text-blue-400">{summaryStats.good}</div>
+              <div className="text-xs text-muted-foreground">2-4 days</div>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+              <div className="text-2xl font-bold text-orange-400">{summaryStats.fair}</div>
+              <div className="text-xs text-muted-foreground">4-7 days</div>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <div className="text-2xl font-bold text-red-400">{summaryStats.poor}</div>
+              <div className="text-xs text-muted-foreground">7+ days</div>
             </div>
             <div className="text-center p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-              <div className={cn(
-                "text-2xl font-bold",
-                summaryStats.avgChange < 0 ? "text-emerald-400" : summaryStats.avgChange > 0 ? "text-red-400" : "text-purple-400"
-              )}>
-                {summaryStats.avgChange > 0 ? '+' : ''}{summaryStats.avgChange.toFixed(1)}d
+              <div className="text-2xl font-bold text-purple-400">
+                {summaryStats.avgDaysOut.toFixed(1)}d
               </div>
-              <div className="text-xs text-muted-foreground">Avg Change</div>
+              <div className="text-xs text-muted-foreground">Average</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Two columns: Wins and Losses */}
+      {/* Two columns: Best and Worst */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Top Improvements (Wins) */}
+        {/* Top Performers (Shortest Wait Times) */}
         <Card className="glass border-emerald-500/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Trophy className="h-5 w-5 text-emerald-500" />
-              <span className="text-emerald-400">Top 10 Wins</span>
+              <span className="text-emerald-400">Top 10 Best Availability</span>
             </CardTitle>
-            <CardDescription>Biggest improvements in wait time</CardDescription>
+            <CardDescription>Shortest wait times</CardDescription>
           </CardHeader>
           <CardContent>
-            {topImprovements.length > 0 ? (
+            {topPerformers.length > 0 ? (
               <div className="space-y-2">
-                {topImprovements.map((link, idx) => (
+                {topPerformers.map((link, idx) => (
                   <div 
                     key={idx}
                     className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors"
@@ -180,13 +156,14 @@ export function HistoricalComparison({ data }: HistoricalComparisonProps) {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="flex items-center gap-1 text-emerald-400 font-semibold">
-                          <TrendingDown className="h-4 w-4" />
-                          {link.change}d
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {link.previousDaysOut}d → {link.currentDaysOut}d
-                        </div>
+                        <Badge className={cn(
+                          "font-semibold",
+                          link.daysOut < 2 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+                          link.daysOut < 4 ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
+                          "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                        )}>
+                          {link.daysOut} days
+                        </Badge>
                       </div>
                       {link.url && (
                         <a 
@@ -204,25 +181,25 @@ export function HistoricalComparison({ data }: HistoricalComparisonProps) {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No improvements today
+                No data available
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Top Declines (Losses) */}
+        {/* Needs Attention (Longest Wait Times) */}
         <Card className="glass border-red-500/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
               <span className="text-red-400">Top 10 Needs Attention</span>
             </CardTitle>
-            <CardDescription>Biggest increases in wait time</CardDescription>
+            <CardDescription>Longest wait times</CardDescription>
           </CardHeader>
           <CardContent>
-            {topDeclines.length > 0 ? (
+            {needsAttention.length > 0 ? (
               <div className="space-y-2">
-                {topDeclines.map((link, idx) => (
+                {needsAttention.map((link, idx) => (
                   <div 
                     key={idx}
                     className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors"
@@ -253,13 +230,14 @@ export function HistoricalComparison({ data }: HistoricalComparisonProps) {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="flex items-center gap-1 text-red-400 font-semibold">
-                          <TrendingUp className="h-4 w-4" />
-                          +{link.change}d
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {link.previousDaysOut}d → {link.currentDaysOut}d
-                        </div>
+                        <Badge className={cn(
+                          "font-semibold",
+                          link.daysOut >= 7 ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                          link.daysOut >= 4 ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
+                          "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                        )}>
+                          {link.daysOut} days
+                        </Badge>
                       </div>
                       {link.url && (
                         <a 
@@ -277,7 +255,7 @@ export function HistoricalComparison({ data }: HistoricalComparisonProps) {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No declines today - great news!
+                No data available
               </div>
             )}
           </CardContent>
