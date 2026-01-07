@@ -11,6 +11,7 @@ import { Filters } from '@/components/filters'
 import { DataTable } from '@/components/data-table'
 import { RowDrawer } from '@/components/row-drawer'
 import { Charts } from '@/components/charts'
+import { AdvancedCharts } from '@/components/advanced-charts'
 import { ErrorState } from '@/components/error-state'
 import { LoadingSkeleton } from '@/components/loading-skeleton'
 import { HeroSection } from '@/components/hero-section'
@@ -478,14 +479,27 @@ export default function Dashboard() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="charts">
+                <TabsContent value="charts" className="space-y-6">
                   {chartData.length > 0 ? (
-                    <Charts 
-                      data={chartData} 
-                      weeklyTrend={weeklyTrend}
-                      categoryType={filters.categoryType}
-                      filteredRows={filteredData}
-                    />
+                    <>
+                      <Charts 
+                        data={chartData} 
+                        weeklyTrend={weeklyTrend}
+                        categoryType={filters.categoryType}
+                        filteredRows={filteredData}
+                      />
+                      
+                      {/* Advanced Visualizations */}
+                      <div className="pt-6 border-t">
+                        <h3 className="text-xl font-semibold mb-4 text-gradient-secondary">
+                          Advanced Visualizations
+                        </h3>
+                        <AdvancedCharts 
+                          data={filteredData}
+                          categoryType={filters.categoryType}
+                        />
+                      </div>
+                    </>
                   ) : (
                     <EmptyState type="no-data" />
                   )}
