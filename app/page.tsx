@@ -36,6 +36,10 @@ import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '@/components/keyboa
 import { QuickStatsBar } from '@/components/quick-stats-bar'
 import { DataFreshness } from '@/components/data-freshness'
 import { VisualKPIs } from '@/components/visual-kpis'
+import { FavoritesPanel } from '@/components/favorites-panel'
+import { SLASettings } from '@/components/sla-settings'
+import { ComparisonMode } from '@/components/comparison-mode'
+import { ReportDownload } from '@/components/report-download'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
   getUniqueColumnValues, 
@@ -351,6 +355,11 @@ export default function Dashboard() {
             <QuickStatsBar data={filteredData} stats={summaryStats} />
           )}
 
+          {/* Favorites Panel */}
+          {data && filteredData.length > 0 && (
+            <FavoritesPanel data={filteredData} onSelectLink={handleRowClick} />
+          )}
+
           {/* Daily Summary - Best/Worst Wait Times (Most Important!) */}
           {data && filteredData.length > 0 && (
             <HistoricalComparison data={filteredData} />
@@ -411,10 +420,12 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  <SLASettings />
                   <FilterPresets 
                     currentFilters={filters} 
                     onApplyPreset={handleApplyPreset}
                   />
+                  <ReportDownload data={filteredData} headers={data.headers} />
                   <ExportMenu 
                     data={filteredData}
                     headers={data.headers}
@@ -509,6 +520,9 @@ export default function Dashboard() {
                 <TabsContent value="charts" className="space-y-6">
                   {chartData.length > 0 ? (
                     <>
+                      {/* Comparison Mode */}
+                      <ComparisonMode data={filteredData} />
+
                       <Charts 
                         data={chartData} 
                         weeklyTrend={weeklyTrend}

@@ -1,0 +1,39 @@
+{
+  "name": "Oncehub Availability Report",
+  "short_name": "Oncehub Report",
+  "description": "Real-time monitoring dashboard for tracking appointment availability",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0a1e",
+  "theme_color": "#a855f7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business", "medical"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Analytics",
+      "url": "/analytics",
+      "description": "View detailed link analytics"
+    },
+    {
+      "name": "Insights",
+      "url": "/insights",
+      "description": "View advanced insights"
+    }
+  ]
+}
+
