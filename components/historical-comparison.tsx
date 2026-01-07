@@ -96,6 +96,24 @@ export function HistoricalComparison() {
     )
   }
 
+  const seedHistory = async () => {
+    setSnapshotting(true)
+    try {
+      const res = await fetch('/api/seed-history')
+      const result = await res.json()
+      if (result.success) {
+        // Refresh the comparison data
+        await fetchComparison()
+      } else {
+        console.error('Failed to seed history:', result.error)
+      }
+    } catch (error) {
+      console.error('Failed to seed history:', error)
+    } finally {
+      setSnapshotting(false)
+    }
+  }
+
   if (!data?.hasHistory) {
     return (
       <Card className="border-dashed border-2 border-purple-300 dark:border-purple-700 glass">
@@ -105,11 +123,19 @@ export function HistoricalComparison() {
           </div>
           <h3 className="text-lg font-semibold mb-2 text-gradient-primary">No Historical Data Yet</h3>
           <p className="text-muted-foreground mb-4">
-            {data?.message || 'Take your first snapshot to start tracking changes over time.'}
+            {data?.message || 'Take your first snapshot or seed historical data to start tracking changes.'}
           </p>
-          <Button onClick={takeSnapshot} disabled={snapshotting} className="gradient-primary text-white shadow-lg shadow-purple-500/30">
-            {snapshotting ? 'Taking Snapshot...' : 'Take First Snapshot'}
-          </Button>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Button onClick={takeSnapshot} disabled={snapshotting} className="gradient-primary text-white shadow-lg shadow-purple-500/30">
+              {snapshotting ? 'Working...' : 'Take Snapshot'}
+            </Button>
+            <Button onClick={seedHistory} disabled={snapshotting} variant="outline" className="border-purple-300 dark:border-purple-700">
+              {snapshotting ? 'Generating...' : 'Generate 30 Days History'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            "Generate 30 Days History" creates simulated historical data based on current values
+          </p>
         </CardContent>
       </Card>
     )
