@@ -467,6 +467,7 @@ export default function Dashboard() {
                       data={chartData} 
                       weeklyTrend={weeklyTrend}
                       categoryType={filters.categoryType}
+                      filteredRows={filteredData}
                     />
                   ) : (
                     <EmptyState type="no-data" />

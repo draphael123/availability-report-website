@@ -149,21 +149,44 @@ export function getUniqueColumnValues(rows: ParsedSheetRow[], columnName: string
 
 /**
  * Calculate chart data for category breakdown
+ * Tries multiple column names to find useful groupings
  */
 export function calculateCategoryChartData(
   rows: ParsedSheetRow[],
-  categoryColumn: string = 'Category'
+  groupBy: 'category' | 'location' | 'name' | 'auto' = 'auto'
 ): { category: string; count: number; avgDaysOut: number | null }[] {
   const categoryMap = new Map<string, { count: number; daysOutSum: number; daysOutCount: number }>()
   
+  // Determine which column to group by
+  let columnName = 'Category'
+  if (groupBy === 'location') {
+    columnName = 'Location'
+  } else if (groupBy === 'name') {
+    columnName = 'Name'
+  } else if (groupBy === 'auto') {
+    // Auto-detect: if Category has only 1-2 unique values, use Location instead
+    const categoryValues = new Set(rows.map(r => r.raw['Category'] || r.raw['category']).filter(Boolean))
+    if (categoryValues.size <= 2 && rows.length > 5) {
+      // Try Location
+      const locationValues = new Set(rows.map(r => r.raw['Location'] || r.raw['location']).filter(Boolean))
+      if (locationValues.size > categoryValues.size) {
+        columnName = 'Location'
+      }
+    }
+  }
+  
   rows.forEach(row => {
-    const category = row.raw[categoryColumn] || 'Uncategorized'
+    // Try multiple possible column name variations
+    const value = row.raw[columnName] || 
+                  row.raw[columnName.toLowerCase()] || 
+                  row.raw[columnName.toUpperCase()] ||
+                  'Uncategorized'
     
-    if (!categoryMap.has(category)) {
-      categoryMap.set(category, { count: 0, daysOutSum: 0, daysOutCount: 0 })
+    if (!categoryMap.has(value)) {
+      categoryMap.set(value, { count: 0, daysOutSum: 0, daysOutCount: 0 })
     }
     
-    const stats = categoryMap.get(category)!
+    const stats = categoryMap.get(value)!
     stats.count++
     
     if (row.daysOut !== null) {
@@ -181,6 +204,24 @@ export function calculateCategoryChartData(
         : null,
     }))
     .sort((a, b) => b.count - a.count)
+}
+
+/**
+ * Calculate chart data grouped by Location
+ */
+export function calculateLocationChartData(
+  rows: ParsedSheetRow[]
+): { category: string; count: number; avgDaysOut: number | null }[] {
+  return calculateCategoryChartData(rows, 'location')
+}
+
+/**
+ * Calculate chart data grouped by Name
+ */
+export function calculateNameChartData(
+  rows: ParsedSheetRow[]
+): { category: string; count: number; avgDaysOut: number | null }[] {
+  return calculateCategoryChartData(rows, 'name')
 }
 
 /**

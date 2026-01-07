@@ -18,12 +18,15 @@ import {
   Pie,
 } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { CategoryChartData, WeeklyTrendData, CategoryType } from '@/lib/types'
+import { CategoryChartData, WeeklyTrendData, CategoryType, ParsedSheetRow } from '@/lib/types'
+import { calculateCategoryChartData, calculateLocationChartData } from '@/lib/sheet-parser'
 
 interface ChartsProps {
   data: CategoryChartData[]
+  locationData?: CategoryChartData[]
   weeklyTrend: WeeklyTrendData[]
   categoryType: CategoryType
+  filteredRows?: ParsedSheetRow[]
 }
 
 // Vibrant color palette
@@ -53,9 +56,13 @@ const RAINBOW = [
   '#6366f1', // indigo
 ]
 
-export function Charts({ data, weeklyTrend, categoryType }: ChartsProps) {
-  // Filter to top 10 categories for readability
+export function Charts({ data, locationData, weeklyTrend, categoryType, filteredRows }: ChartsProps) {
+  // Calculate location data if not provided but we have filtered rows
+  const locationChartData = locationData || (filteredRows ? calculateLocationChartData(filteredRows) : [])
+  
+  // Filter to top 10 for readability
   const topData = data.slice(0, 10)
+  const topLocationData = locationChartData.slice(0, 10)
 
   // Get the main color based on category type
   const mainColor = categoryType === 'HRT' ? COLORS.hrt 
@@ -130,15 +137,84 @@ export function Charts({ data, weeklyTrend, categoryType }: ChartsProps) {
         </CardContent>
       </Card>
 
-      {/* Average Days Out by Category */}
+      {/* Rows by Location */}
       <Card className="card-hover glass">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500" />
-            <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Avg Days Out by Category</span>
+            <span className="bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">Rows by Location</span>
           </CardTitle>
           <CardDescription>
-            Average days out value per category ({categoryLabel}, top 10)
+            Number of entries per location ({categoryLabel}, top 10)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px]">
+            {topLocationData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={topLocationData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                >
+                  <defs>
+                    {RAINBOW.map((color, i) => (
+                      <linearGradient key={`loc-${i}`} id={`locGradient${i}`} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={color} stopOpacity={0.8}/>
+                        <stop offset="100%" stopColor={color} stopOpacity={1}/>
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                  <XAxis type="number" />
+                  <YAxis
+                    dataKey="category"
+                    type="category"
+                    width={120}
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) =>
+                      value.length > 15 ? value.substring(0, 15) + '...' : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      backdropFilter: 'blur(8px)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    }}
+                    labelStyle={{ fontWeight: 600 }}
+                  />
+                  <Bar
+                    dataKey="count"
+                    radius={[0, 8, 8, 0]}
+                    name="Row Count"
+                  >
+                    {topLocationData.map((entry, index) => (
+                      <Cell key={`loc-cell-${index}`} fill={`url(#locGradient${index % RAINBOW.length})`} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                No location data available
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Average Days Out by Category */}
+      <Card className="card-hover glass">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+            <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Avg Days Out by Category</span>
+          </CardTitle>
+          <CardDescription>
+            Average wait time per category ({categoryLabel}, top 10)
           </CardDescription>
         </CardHeader>
         <CardContent>
