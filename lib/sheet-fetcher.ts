@@ -96,11 +96,28 @@ async function fetchViaApi(config: SheetConfig): Promise<FetchResult> {
       }
     }
     
-    // First row is headers
-    const headers = values[0].map(h => String(h || '').trim())
+    // Check if first row looks like summary data (contains special chars or stats)
+    // If so, skip it and use the second row as headers
+    let headerRowIndex = 0
+    const firstRow = values[0].map(h => String(h || '').trim())
+    const looksLikeSummary = firstRow.some(cell => 
+      cell.includes('Summary') || 
+      cell.includes('Total') || 
+      cell.includes('Avg:') ||
+      cell.includes('|') ||
+      cell.includes('✅') ||
+      cell.includes('❌')
+    )
     
-    // Convert remaining rows to objects
-    const rows: SheetRow[] = values.slice(1).map(row => {
+    if (looksLikeSummary && values.length > 1) {
+      headerRowIndex = 1 // Use second row as headers
+    }
+    
+    // Get headers from the appropriate row
+    const headers = values[headerRowIndex].map(h => String(h || '').trim())
+    
+    // Convert remaining rows to objects (skip header row and any summary rows)
+    const rows: SheetRow[] = values.slice(headerRowIndex + 1).map(row => {
       const obj: SheetRow = {}
       headers.forEach((header, idx) => {
         obj[header] = row[idx] !== undefined ? String(row[idx]) : ''
@@ -223,9 +240,25 @@ async function fetchViaCSV(config: SheetConfig): Promise<FetchResult> {
       }
     }
     
-    const headers = parsed[0].map(h => h.trim())
+    // Check if first row looks like summary data
+    let headerRowIndex = 0
+    const firstRow = parsed[0].map(h => h.trim())
+    const looksLikeSummary = firstRow.some(cell => 
+      cell.includes('Summary') || 
+      cell.includes('Total') || 
+      cell.includes('Avg:') ||
+      cell.includes('|') ||
+      cell.includes('✅') ||
+      cell.includes('❌')
+    )
     
-    const rows: SheetRow[] = parsed.slice(1).map(row => {
+    if (looksLikeSummary && parsed.length > 1) {
+      headerRowIndex = 1 // Use second row as headers
+    }
+    
+    const headers = parsed[headerRowIndex].map(h => h.trim())
+    
+    const rows: SheetRow[] = parsed.slice(headerRowIndex + 1).map(row => {
       const obj: SheetRow = {}
       headers.forEach((header, idx) => {
         obj[header] = row[idx] !== undefined ? row[idx] : ''
