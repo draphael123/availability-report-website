@@ -93,7 +93,9 @@ export async function GET(request: Request) {
 
     // Update the list of available dates
     const existingDates = await kv.get<string[]>('snapshot:dates') || []
-    const allDates = [...new Set([...existingDates, ...seededDates])].sort()
+    const combinedDates = [...existingDates, ...seededDates]
+    const uniqueDates = Array.from(new Set(combinedDates))
+    const allDates = uniqueDates.sort()
     await kv.set('snapshot:dates', allDates)
 
     // Set latest snapshot reference
