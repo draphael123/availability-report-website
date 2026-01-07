@@ -77,44 +77,33 @@ function hasError(row: SheetRow): boolean {
 
 /**
  * Determine category type (HRT, TRT, or Provider) from row data
- * Looks at the Name column for identifiers:
- * - HRT: Name starts with "HRT"
- * - TRT: Name starts with "TRT"
- * - Provider: Name contains "provider"
+ * Searches ALL columns for identifiers:
+ * - HRT: Any column starts with or contains "HRT"
+ * - TRT: Any column starts with or contains "TRT"  
+ * - Provider: Any column contains "provider"
  */
 function determineCategoryType(row: SheetRow): CategoryType {
-  // Get the Name value - try different possible column names
+  // Combine all values from the row into one string for searching
+  const allValues = Object.values(row).join(' ').toUpperCase()
+  
+  // Also check individual important columns
   const name = row['Name'] || row['name'] || row['NAME'] || ''
-  const upperName = name.toUpperCase().trim()
-  
-  // Check if name starts with HRT
-  if (upperName.startsWith('HRT')) {
-    return 'HRT'
-  }
-  
-  // Check if name starts with TRT
-  if (upperName.startsWith('TRT')) {
-    return 'TRT'
-  }
-  
-  // Check if name contains "provider"
-  if (upperName.includes('PROVIDER')) {
-    return 'Provider'
-  }
-  
-  // Fallback: also check Category column if Name didn't match
   const category = row['Category'] || row['category'] || ''
-  const upperCategory = category.toUpperCase().trim()
+  const url = row['URL'] || row['url'] || ''
+  const combined = `${name} ${category} ${url}`.toUpperCase()
   
-  if (upperCategory.startsWith('HRT') || upperCategory.includes('HRT')) {
+  // Check for HRT - look for "HRT" at start of any word or as standalone
+  if (/\bHRT\b/.test(combined) || /\bHRT\b/.test(allValues) || combined.includes('HRT ') || combined.startsWith('HRT')) {
     return 'HRT'
   }
   
-  if (upperCategory.startsWith('TRT') || upperCategory.includes('TRT')) {
+  // Check for TRT - look for "TRT" at start of any word or as standalone
+  if (/\bTRT\b/.test(combined) || /\bTRT\b/.test(allValues) || combined.includes('TRT ') || combined.startsWith('TRT')) {
     return 'TRT'
   }
   
-  if (upperCategory.includes('PROVIDER')) {
+  // Check for Provider
+  if (combined.includes('PROVIDER') || allValues.includes('PROVIDER')) {
     return 'Provider'
   }
   
