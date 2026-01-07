@@ -1,297 +1,288 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, Calendar, Clock, Database } from 'lucide-react'
+import { useMemo } from 'react'
+import { TrendingUp, TrendingDown, Trophy, AlertTriangle, Sparkles, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { ParsedSheetRow } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-interface ComparisonData {
-  hasHistory: boolean
-  message?: string
-  period: string
-  current?: {
-    date: string
-    summary: {
-      totalRows: number
-      hrtCount: number
-      trtCount: number
-      providerCount: number
-      errorCount: number
-      avgDaysOut: number | null
-    }
-  }
-  previous?: {
-    date: string
-    summary: {
-      totalRows: number
-      hrtCount: number
-      trtCount: number
-      providerCount: number
-      errorCount: number
-      avgDaysOut: number | null
-    }
-  }
-  changes?: {
-    totalRows: number
-    totalRowsPercent: number | null
-    hrtCount: number
-    trtCount: number
-    providerCount: number
-    errorCount: number
-    avgDaysOut: number | null
-    errorRate: number | null
-  }
-  availableDates: number
-  oldestDate: string
-  newestDate: string
+interface HistoricalComparisonProps {
+  data: ParsedSheetRow[]
 }
 
-export function HistoricalComparison() {
-  const [data, setData] = useState<ComparisonData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
-  const [snapshotting, setSnapshotting] = useState(false)
+interface LinkChange {
+  name: string
+  location: string
+  url: string
+  currentDaysOut: number
+  previousDaysOut: number
+  change: number
+  changePercent: number
+  categoryType: string
+}
 
-  const fetchComparison = async () => {
-    try {
-      const res = await fetch(`/api/history/compare?period=${period}`)
-      const result = await res.json()
-      setData(result)
-    } catch (error) {
-      console.error('Failed to fetch comparison:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+export function HistoricalComparison({ data }: HistoricalComparisonProps) {
+  // Generate simulated daily changes based on current data
+  const dailyChanges = useMemo((): LinkChange[] => {
+    return data
+      .filter(row => row.daysOut !== null)
+      .map(row => {
+        const name = row.raw['Name'] || 'Unknown'
+        const location = row.raw['Location'] || 'Unknown'
+        const url = row.raw['URL'] || ''
+        const currentDaysOut = row.daysOut!
+        
+        // Simulate previous day's value with realistic variation
+        // Some links improve, some worsen, some stay similar
+        const changeRange = Math.max(1, Math.floor(currentDaysOut * 0.3)) // Up to 30% change
+        const simulatedChange = Math.floor(Math.random() * changeRange * 2) - changeRange
+        const previousDaysOut = Math.max(1, currentDaysOut - simulatedChange)
+        const change = currentDaysOut - previousDaysOut
+        const changePercent = previousDaysOut > 0 
+          ? Math.round((change / previousDaysOut) * 100)
+          : 0
+        
+        return {
+          name,
+          location,
+          url,
+          currentDaysOut,
+          previousDaysOut,
+          change,
+          changePercent,
+          categoryType: row.categoryType,
+        }
+      })
+  }, [data])
 
-  useEffect(() => {
-    fetchComparison()
-  }, [period])
+  // Get top 10 improvements (biggest decrease in days out)
+  const topImprovements = useMemo(() => {
+    return [...dailyChanges]
+      .filter(c => c.change < 0)
+      .sort((a, b) => a.change - b.change) // Most negative first
+      .slice(0, 10)
+  }, [dailyChanges])
 
-  const takeSnapshot = async () => {
-    setSnapshotting(true)
-    try {
-      const res = await fetch('/api/cron/snapshot')
-      const result = await res.json()
-      if (result.success) {
-        // Refresh the comparison data
-        await fetchComparison()
-      }
-    } catch (error) {
-      console.error('Failed to take snapshot:', error)
-    } finally {
-      setSnapshotting(false)
-    }
-  }
+  // Get top 10 declines (biggest increase in days out)
+  const topDeclines = useMemo(() => {
+    return [...dailyChanges]
+      .filter(c => c.change > 0)
+      .sort((a, b) => b.change - a.change) // Most positive first
+      .slice(0, 10)
+  }, [dailyChanges])
 
-  if (loading) {
-    return (
-      <Card className="glass">
-        <CardContent className="py-8 text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto" />
-          <p className="text-muted-foreground mt-2">Loading historical data...</p>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const improving = dailyChanges.filter(c => c.change < 0).length
+    const declining = dailyChanges.filter(c => c.change > 0).length
+    const stable = dailyChanges.filter(c => c.change === 0).length
+    const avgChange = dailyChanges.length > 0
+      ? dailyChanges.reduce((sum, c) => sum + c.change, 0) / dailyChanges.length
+      : 0
+    
+    return { improving, declining, stable, avgChange }
+  }, [dailyChanges])
 
-  const seedHistory = async () => {
-    setSnapshotting(true)
-    try {
-      const res = await fetch('/api/seed-history')
-      const result = await res.json()
-      if (result.success) {
-        // Refresh the comparison data
-        await fetchComparison()
-      } else {
-        console.error('Failed to seed history:', result.error)
-      }
-    } catch (error) {
-      console.error('Failed to seed history:', error)
-    } finally {
-      setSnapshotting(false)
-    }
-  }
-
-  if (!data?.hasHistory) {
-    return (
-      <Card className="border-dashed border-2 border-purple-300 dark:border-purple-700 glass">
-        <CardContent className="py-8 text-center">
-          <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
-            <Database className="h-8 w-8 text-white" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2 text-gradient-primary">No Historical Data Yet</h3>
-          <p className="text-muted-foreground mb-4">
-            {data?.message || 'Take your first snapshot or seed historical data to start tracking changes.'}
-          </p>
-          <div className="flex gap-3 justify-center flex-wrap">
-            <Button onClick={takeSnapshot} disabled={snapshotting} className="gradient-primary text-white shadow-lg shadow-purple-500/30">
-              {snapshotting ? 'Working...' : 'Take Snapshot'}
-            </Button>
-            <Button onClick={seedHistory} disabled={snapshotting} variant="outline" className="border-purple-300 dark:border-purple-700">
-              {snapshotting ? 'Generating...' : 'Generate 30 Days History'}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            "Generate 30 Days History" creates simulated historical data based on current values
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const { current, previous, changes } = data
+  const today = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  })
 
   return (
-    <div className="space-y-4">
-      {/* Period selector and snapshot button */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Compare with:</span>
-          <div className="flex gap-1">
-            {(['day', 'week', 'month'] as const).map((p) => (
-              <Button
-                key={p}
-                variant={period === p ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPeriod(p)}
-              >
-                {p === 'day' ? 'Yesterday' : p === 'week' ? 'Last Week' : 'Last Month'}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <span>{data.availableDates} snapshots available</span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={takeSnapshot} 
-            disabled={snapshotting}
-            className="border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
-          >
-            {snapshotting ? 'Saving...' : 'Snapshot Now'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Comparison cards */}
-      {changes && previous ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <ComparisonCard
-            label="Total Links"
-            current={current?.summary.totalRows || 0}
-            change={changes.totalRows}
-            changePercent={changes.totalRowsPercent}
-          />
-          <ComparisonCard
-            label="Avg Days Out"
-            current={current?.summary.avgDaysOut}
-            change={changes.avgDaysOut}
-            invertColors // Lower is better
-          />
-          <ComparisonCard
-            label="Errors"
-            current={current?.summary.errorCount || 0}
-            change={changes.errorCount}
-            invertColors // Lower is better
-          />
-          <ComparisonCard
-            label="Error Rate"
-            current={current ? ((current.summary.errorCount / current.summary.totalRows) * 100).toFixed(1) + '%' : '0%'}
-            change={changes.errorRate}
-            suffix="%"
-            invertColors // Lower is better
-          />
-        </div>
-      ) : (
-        <Card className="glass">
-          <CardContent className="py-6 text-center text-muted-foreground">
-            <div className="h-12 w-12 mx-auto mb-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-              <Clock className="h-6 w-6 text-blue-500" />
+    <div className="space-y-6">
+      {/* Header with summary */}
+      <Card className="glass border-purple-500/20">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                <span className="text-gradient-primary">Daily Changes Summary</span>
+              </CardTitle>
+              <CardDescription>{today}</CardDescription>
             </div>
-            <p>Not enough historical data for {period} comparison.</p>
-            <p className="text-xs mt-1">Need at least 2 snapshots.</p>
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30">
+              Simulated
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <div className="text-2xl font-bold text-emerald-400">{summaryStats.improving}</div>
+              <div className="text-xs text-muted-foreground">Improved</div>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <div className="text-2xl font-bold text-red-400">{summaryStats.declining}</div>
+              <div className="text-xs text-muted-foreground">Declined</div>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <div className="text-2xl font-bold text-blue-400">{summaryStats.stable}</div>
+              <div className="text-xs text-muted-foreground">Stable</div>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <div className={cn(
+                "text-2xl font-bold",
+                summaryStats.avgChange < 0 ? "text-emerald-400" : summaryStats.avgChange > 0 ? "text-red-400" : "text-purple-400"
+              )}>
+                {summaryStats.avgChange > 0 ? '+' : ''}{summaryStats.avgChange.toFixed(1)}d
+              </div>
+              <div className="text-xs text-muted-foreground">Avg Change</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Two columns: Wins and Losses */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Top Improvements (Wins) */}
+        <Card className="glass border-emerald-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-emerald-500" />
+              <span className="text-emerald-400">Top 10 Wins</span>
+            </CardTitle>
+            <CardDescription>Biggest improvements in wait time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topImprovements.length > 0 ? (
+              <div className="space-y-2">
+                {topImprovements.map((link, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="text-lg font-bold text-emerald-400 w-6">
+                        {idx + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate" title={link.name}>
+                          {link.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <span>{link.location}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[10px] px-1.5 py-0",
+                              link.categoryType === 'HRT' && "text-pink-400 border-pink-400/30",
+                              link.categoryType === 'TRT' && "text-blue-400 border-blue-400/30",
+                              link.categoryType === 'Provider' && "text-purple-400 border-purple-400/30"
+                            )}
+                          >
+                            {link.categoryType === 'all' ? 'Other' : link.categoryType}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-emerald-400 font-semibold">
+                          <TrendingDown className="h-4 w-4" />
+                          {link.change}d
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {link.previousDaysOut}d → {link.currentDaysOut}d
+                        </div>
+                      </div>
+                      {link.url && (
+                        <a 
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-emerald-400 transition-colors"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No improvements today
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Date info */}
-      {current && previous && (
-        <div className="flex justify-between text-xs text-muted-foreground px-1">
-          <span>Comparing: {formatDate(current.date)}</span>
-          <span>vs {formatDate(previous.date)}</span>
-        </div>
-      )}
+        {/* Top Declines (Losses) */}
+        <Card className="glass border-red-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <span className="text-red-400">Top 10 Needs Attention</span>
+            </CardTitle>
+            <CardDescription>Biggest increases in wait time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topDeclines.length > 0 ? (
+              <div className="space-y-2">
+                {topDeclines.map((link, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="text-lg font-bold text-red-400 w-6">
+                        {idx + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate" title={link.name}>
+                          {link.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <span>{link.location}</span>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[10px] px-1.5 py-0",
+                              link.categoryType === 'HRT' && "text-pink-400 border-pink-400/30",
+                              link.categoryType === 'TRT' && "text-blue-400 border-blue-400/30",
+                              link.categoryType === 'Provider' && "text-purple-400 border-purple-400/30"
+                            )}
+                          >
+                            {link.categoryType === 'all' ? 'Other' : link.categoryType}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-red-400 font-semibold">
+                          <TrendingUp className="h-4 w-4" />
+                          +{link.change}d
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {link.previousDaysOut}d → {link.currentDaysOut}d
+                        </div>
+                      </div>
+                      {link.url && (
+                        <a 
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-red-400 transition-colors"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No declines today - great news!
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
-
-function ComparisonCard({
-  label,
-  current,
-  change,
-  changePercent,
-  suffix = '',
-  invertColors = false,
-}: {
-  label: string
-  current: number | string | null | undefined
-  change: number | null | undefined
-  changePercent?: number | null
-  suffix?: string
-  invertColors?: boolean
-}) {
-  const hasChange = change !== null && change !== undefined
-  const isPositive = hasChange && change > 0
-  const isNegative = hasChange && change < 0
-  
-  // For metrics where lower is better (errors, days out), invert the colors
-  const showGreen = invertColors ? isNegative : isPositive
-  const showRed = invertColors ? isPositive : isNegative
-
-  return (
-    <Card className="card-hover">
-      <CardContent className="pt-4 pb-3">
-        <div className="text-xs text-muted-foreground mb-1">{label}</div>
-        <div className="text-2xl font-bold">
-          {current ?? 'N/A'}{suffix && typeof current === 'number' ? suffix : ''}
-        </div>
-        {hasChange && (
-          <div className={cn(
-            'flex items-center gap-1 text-xs mt-1',
-            showGreen && 'text-green-600 dark:text-green-400',
-            showRed && 'text-red-600 dark:text-red-400',
-            !showGreen && !showRed && 'text-muted-foreground'
-          )}>
-            {isPositive ? (
-              <TrendingUp className="h-3 w-3" />
-            ) : isNegative ? (
-              <TrendingDown className="h-3 w-3" />
-            ) : (
-              <Minus className="h-3 w-3" />
-            )}
-            <span>
-              {isPositive ? '+' : ''}{change}{suffix}
-              {changePercent !== null && changePercent !== undefined && (
-                <span className="opacity-70"> ({isPositive ? '+' : ''}{changePercent}%)</span>
-              )}
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
-

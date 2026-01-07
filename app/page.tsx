@@ -369,8 +369,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Historical Comparison */}
-          <HistoricalComparison />
+          {/* Daily Changes Summary */}
+          <HistoricalComparison data={filteredData} />
 
           {/* Alerts Panel */}
           {alerts.length > 0 && (
