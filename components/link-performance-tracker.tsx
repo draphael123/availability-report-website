@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { ParsedSheetRow } from '@/lib/types'
+import { generateMockLinkHistory } from '@/lib/mock-history'
 
 interface LinkPerformanceTrackerProps {
   currentData: ParsedSheetRow[]
@@ -63,8 +64,9 @@ export function LinkPerformanceTracker({ currentData }: LinkPerformanceTrackerPr
   const [searchTerm, setSearchTerm] = useState('')
   const [trendFilter, setTrendFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<string>('change')
+  const [usingMockData, setUsingMockData] = useState(false)
 
-  // Fetch last week's data
+  // Fetch last week's data or use mock data
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -76,18 +78,43 @@ export function LinkPerformanceTracker({ currentData }: LinkPerformanceTrackerPr
         const res = await fetch(`/api/history?date=${dateStr}`)
         if (res.ok) {
           const data = await res.json()
-          if (data && !data.error) {
+          if (data && !data.error && data.data && data.data.length > 0) {
             setHistoricalData(data)
+            setUsingMockData(false)
+          } else {
+            // Use mock data if no real historical data
+            useMockHistoricalData()
           }
+        } else {
+          useMockHistoricalData()
         }
       } catch (error) {
         console.error('Failed to fetch historical data:', error)
+        useMockHistoricalData()
       } finally {
         setLoading(false)
       }
     }
+    
+    const useMockHistoricalData = () => {
+      if (currentData.length > 0) {
+        // Generate mock historical data
+        const mockHistory = generateMockLinkHistory(currentData)
+        const mockSnapshot: HistoricalSnapshot = {
+          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          data: mockHistory.map((item, idx) => ({
+            raw: { Name: item.name },
+            daysOut: item.lastWeekDaysOut,
+            hasError: Math.random() < 0.05, // 5% chance of error
+          }))
+        }
+        setHistoricalData(mockSnapshot)
+        setUsingMockData(true)
+      }
+    }
+    
     fetchHistory()
-  }, [])
+  }, [currentData])
 
   // Calculate performance for each link
   const linkPerformance = useMemo((): LinkPerformance[] => {
@@ -258,8 +285,8 @@ export function LinkPerformanceTracker({ currentData }: LinkPerformanceTrackerPr
             </CardTitle>
             <CardDescription>
               Compare each link's current wait time vs. 7 days ago
-              {!historicalData && !loading && (
-                <span className="text-amber-500 ml-2">(No historical data available yet)</span>
+              {usingMockData && (
+                <span className="text-blue-500 ml-2">(Using simulated data)</span>
               )}
             </CardDescription>
           </div>
@@ -459,14 +486,14 @@ export function LinkPerformanceTracker({ currentData }: LinkPerformanceTrackerPr
           </div>
         )}
         
-        {/* No historical data message */}
-        {!loading && !historicalData && (
-          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
-            <p className="font-medium text-amber-600 dark:text-amber-400">
-              📊 Historical comparison requires snapshots
+        {/* Simulated data info */}
+        {!loading && usingMockData && (
+          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
+            <p className="font-medium text-blue-600 dark:text-blue-400">
+              📊 Showing simulated historical data
             </p>
             <p className="text-muted-foreground mt-1">
-              Go to "Historical Comparison" section and click "Generate 30 Days History" to enable week-over-week tracking.
+              This is simulated week-over-week data based on your current data with realistic variations. Set up Vercel KV for real historical tracking.
             </p>
           </div>
         )}
