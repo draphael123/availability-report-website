@@ -24,11 +24,22 @@ function findColumnValue(row: SheetRow, possibleNames: string[]): string | undef
 
 /**
  * Parse a string to number, returning null if not valid
+ * Handles values with emoji prefixes like "🟢 1" or "🟡 6"
  */
 function parseNumber(value: string | undefined): number | null {
   if (value === undefined || value === '') return null
   
-  // Remove common formatting
+  // Remove common formatting and emojis
+  // Extract just the number part - find all digit sequences (including decimals and negatives)
+  const numberMatch = value.match(/-?\d+\.?\d*/g)
+  
+  if (numberMatch && numberMatch.length > 0) {
+    // Take the first number found
+    const num = parseFloat(numberMatch[0])
+    return isNaN(num) ? null : num
+  }
+  
+  // Fallback: try to clean and parse directly
   const cleaned = value.replace(/[,$%]/g, '').trim()
   const num = parseFloat(cleaned)
   
