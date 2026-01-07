@@ -154,3 +154,5 @@ export function StreakCounter({ data, errorCount }: StreakCounterProps) {
   )
 }
 
+
+

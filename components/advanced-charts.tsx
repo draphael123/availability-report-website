@@ -685,3 +685,5 @@ export function AdvancedCharts({ data, categoryType }: AdvancedChartsProps) {
   )
 }
 
+
+

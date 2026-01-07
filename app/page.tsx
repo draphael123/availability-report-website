@@ -33,6 +33,9 @@ import { AIInsights } from '@/components/ai-insights'
 import { Achievements } from '@/components/achievements'
 import { Confetti, useConfetti } from '@/components/confetti'
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts'
+import { QuickStatsBar } from '@/components/quick-stats-bar'
+import { DataFreshness } from '@/components/data-freshness'
+import { VisualKPIs } from '@/components/visual-kpis'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
   getUniqueColumnValues, 
@@ -325,20 +328,28 @@ export default function Dashboard() {
         <div className="animated-bg" />
         
         <div className="container py-6 space-y-6 relative z-10">
-          {/* Top bar with theme toggle */}
-          <div className="flex justify-end gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <Keyboard className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="p-3">
-                <KeyboardShortcutsHelp />
-              </TooltipContent>
-            </Tooltip>
-            <ThemeToggle />
+          {/* Top bar with theme toggle and data freshness */}
+          <div className="flex items-center justify-between gap-2">
+            <DataFreshness lastRefreshed={lastRefreshed} isLoading={isLoading} />
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="p-3">
+                  <KeyboardShortcutsHelp />
+                </TooltipContent>
+              </Tooltip>
+              <ThemeToggle />
+            </div>
           </div>
+
+          {/* Quick Stats Bar - At-a-glance system status */}
+          {data && filteredData.length > 0 && (
+            <QuickStatsBar data={filteredData} stats={summaryStats} />
+          )}
 
           {/* Hero Section with Stats */}
           <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
@@ -366,6 +377,9 @@ export default function Dashboard() {
                 <AIInsights data={filteredData} categoryType={filters.categoryType} />
                 <HeatMapCalendar currentData={data?.data || []} />
               </div>
+
+              {/* Visual KPIs - Key performance indicators with progress bars */}
+              <VisualKPIs data={filteredData} />
             </div>
           )}
 
