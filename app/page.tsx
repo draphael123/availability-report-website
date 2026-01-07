@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare } from 'lucide-react'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -20,6 +20,7 @@ import { FilterPresets } from '@/components/filter-presets'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BenchmarksTable } from '@/components/benchmarks-table'
 import { LinkPerformanceTracker } from '@/components/link-performance-tracker'
+import { DailyReport } from '@/components/daily-report'
 import { EmptyState } from '@/components/empty-state'
 import { SuggestionsBox } from '@/components/suggestions-box'
 import { HealthScore } from '@/components/health-score'
@@ -427,6 +428,10 @@ export default function Dashboard() {
                     <GitCompare className="h-4 w-4" />
                     Weekly Changes
                   </TabsTrigger>
+                  <TabsTrigger value="report" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-rose-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/30 transition-all">
+                    <FileText className="h-4 w-4" />
+                    Daily Report
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="table" className="space-y-4">
@@ -499,6 +504,10 @@ export default function Dashboard() {
 
                 <TabsContent value="weekly" className="space-y-4">
                   <LinkPerformanceTracker currentData={filteredData} />
+                </TabsContent>
+
+                <TabsContent value="report" className="space-y-4">
+                  <DailyReport data={filteredData} categoryType={filters.categoryType} />
                 </TabsContent>
               </Tabs>
 
