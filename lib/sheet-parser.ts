@@ -303,6 +303,7 @@ export function calculateSummaryStats(rows: ParsedSheetRow[]): SummaryStats {
     totalRows: rows.length,
     totalCategories: categories.size,
     avgDaysOut,
+    errorCount,
     errorRate,
     hrtCount: rows.filter(r => r.categoryType === 'HRT').length,
     trtCount: rows.filter(r => r.categoryType === 'TRT').length,

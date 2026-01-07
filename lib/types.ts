@@ -93,6 +93,7 @@ export interface SummaryStats {
   totalRows: number
   totalCategories: number
   avgDaysOut: number | null
+  errorCount: number
   errorRate: number
   hrtCount: number
   trtCount: number
