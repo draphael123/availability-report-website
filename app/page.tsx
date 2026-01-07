@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText } from 'lucide-react'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -23,6 +23,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { BenchmarksTable } from '@/components/benchmarks-table'
 import { LinkPerformanceTracker } from '@/components/link-performance-tracker'
 import { DailyReport } from '@/components/daily-report'
+import { DataSummaries } from '@/components/data-summaries'
 import { EmptyState } from '@/components/empty-state'
 import { SuggestionsBox } from '@/components/suggestions-box'
 import { HealthScore } from '@/components/health-score'
@@ -440,6 +441,10 @@ export default function Dashboard() {
                     <FileText className="h-4 w-4" />
                     Daily Report
                   </TabsTrigger>
+                  <TabsTrigger value="summaries" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 transition-all">
+                    <CalendarDays className="h-4 w-4" />
+                    Summaries
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="table" className="space-y-4">
@@ -529,6 +534,10 @@ export default function Dashboard() {
 
                 <TabsContent value="report" className="space-y-4">
                   <DailyReport data={filteredData} categoryType={filters.categoryType} />
+                </TabsContent>
+
+                <TabsContent value="summaries" className="space-y-4">
+                  <DataSummaries data={filteredData} categoryType={filters.categoryType} />
                 </TabsContent>
               </Tabs>
 
