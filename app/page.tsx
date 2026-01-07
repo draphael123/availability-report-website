@@ -113,20 +113,19 @@ export default function Dashboard() {
     if (!data?.data) return []
 
     return data.data.filter((row) => {
-      // Global search - search across multiple fields
-      if (filters.globalSearch) {
-        const search = filters.globalSearch.toLowerCase()
-        const searchableFields = ['Category', 'Location', 'Name', 'Error Details', 'URL', 'Error Code']
-        const matches = searchableFields.some((field) => {
-          const value = row.raw[field]
-          return value && value.toLowerCase().includes(search)
+      // Global search - search across ALL fields in the row
+      if (filters.globalSearch && filters.globalSearch.trim() !== '') {
+        const search = filters.globalSearch.toLowerCase().trim()
+        
+        // Search through every value in the row
+        const matchFound = Object.values(row.raw).some((value) => {
+          if (!value) return false
+          return String(value).toLowerCase().includes(search)
         })
-        // Also search in all fields if no match found in primary fields
-        if (!matches) {
-          const allFieldsMatch = Object.values(row.raw).some(
-            value => value && value.toLowerCase().includes(search)
-          )
-          if (!allFieldsMatch) return false
+        
+        // If no match found in any field, filter out this row
+        if (!matchFound) {
+          return false
         }
       }
 
@@ -135,14 +134,20 @@ export default function Dashboard() {
         return false
       }
 
-      // Category filter
-      if (filters.category && row.raw['Category'] !== filters.category) {
-        return false
+      // Category filter - check multiple possible column names
+      if (filters.category) {
+        const categoryValue = row.raw['Category'] || row.raw['category'] || ''
+        if (categoryValue !== filters.category) {
+          return false
+        }
       }
 
-      // Location filter
-      if (filters.location && row.raw['Location'] !== filters.location) {
-        return false
+      // Location filter - check multiple possible column names
+      if (filters.location) {
+        const locationValue = row.raw['Location'] || row.raw['location'] || ''
+        if (locationValue !== filters.location) {
+          return false
+        }
       }
 
       // Days out range

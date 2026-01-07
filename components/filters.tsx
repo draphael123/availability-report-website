@@ -39,7 +39,12 @@ export function Filters({
     key: K,
     value: FilterState[K]
   ) => {
-    onFiltersChange({ ...filters, [key]: value })
+    const newFilters = { ...filters, [key]: value }
+    onFiltersChange(newFilters)
+  }
+
+  const clearSearch = () => {
+    onFiltersChange({ ...filters, globalSearch: '' })
   }
 
   const clearFilters = () => {
@@ -63,18 +68,36 @@ export function Filters({
     filters.daysOutMax !== null ||
     filters.errorsOnly
 
+  const hasSearchText = filters.globalSearch && filters.globalSearch.trim() !== ''
+
   return (
     <div className="bg-card border rounded-xl p-4 shadow-sm space-y-4">
       {/* Top row - Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="relative flex-1 w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className={cn(
+            "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
+            hasSearchText ? "text-primary" : "text-muted-foreground"
+          )} />
           <Input
-            placeholder="Search by Category, Location, Name, or Error..."
+            type="text"
+            placeholder="Search all columns..."
             value={filters.globalSearch}
             onChange={(e) => updateFilter('globalSearch', e.target.value)}
-            className="pl-10 bg-background"
+            className={cn(
+              "pl-10 pr-10 bg-background transition-all",
+              hasSearchText && "ring-2 ring-primary/20 border-primary"
+            )}
           />
+          {hasSearchText && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
         
         {hasActiveFilters && (
@@ -85,7 +108,7 @@ export function Filters({
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4 mr-1" />
-            Clear filters
+            Clear all filters
           </Button>
         )}
       </div>
