@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server'
-import { kv } from '@vercel/kv'
-import { fetchSheetData } from '@/lib/sheet-fetcher'
-import { parseSheetRows } from '@/lib/sheet-parser'
+
+// Force dynamic rendering - don't try to statically generate
+export const dynamic = 'force-dynamic'
 
 // This endpoint seeds historical data for the last 30 days
-// based on the current data with slight variations
+// Requires Vercel KV to be configured
 
 export async function GET(request: Request) {
+  // Check if Vercel KV is configured
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return NextResponse.json({ 
+      error: 'Vercel KV not configured',
+      message: 'This endpoint requires Vercel KV. Please set up KV_REST_API_URL and KV_REST_API_TOKEN environment variables.',
+      setup: 'Go to your Vercel dashboard → Storage → Create Database → KV'
+    }, { status: 503 })
+  }
+
   try {
+    // Dynamic import to avoid build-time errors
+    const { kv } = await import('@vercel/kv')
+    const { fetchSheetData } = await import('@/lib/sheet-fetcher')
+    const { parseSheetRows } = await import('@/lib/sheet-parser')
+
     // Fetch current data from Google Sheets
     const result = await fetchSheetData()
     
@@ -31,7 +45,6 @@ export async function GET(request: Request) {
       const dateStr = date.toISOString().split('T')[0]
       
       // Add some variation to make it look realistic
-      const variationFactor = 0.9 + (Math.random() * 0.2) // 90% to 110%
       const errorVariation = Math.random() * 0.05 // 0% to 5% additional errors
       
       // Create snapshot with slight variations
@@ -120,4 +133,3 @@ export async function GET(request: Request) {
     }, { status: 500 })
   }
 }
-

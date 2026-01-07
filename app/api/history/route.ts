@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { kv } from '@vercel/kv'
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 export interface HistoricalSnapshot {
   date: string
@@ -24,11 +26,25 @@ export interface HistoricalSnapshot {
 }
 
 export async function GET(request: Request) {
+  // Check if Vercel KV is configured
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    // Return empty data instead of error - allows app to work without KV
+    return NextResponse.json({ 
+      range: 'none',
+      availableDates: [],
+      summaries: [],
+      message: 'Vercel KV not configured - using simulated data instead'
+    })
+  }
+
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
   const range = searchParams.get('range') // 'week', 'month', 'all'
 
   try {
+    // Dynamic import to avoid build-time errors
+    const { kv } = await import('@vercel/kv')
+
     // Get specific date
     if (date) {
       const snapshot = await kv.get<string>(`snapshot:${date}`)
@@ -109,4 +125,3 @@ export async function GET(request: Request) {
     }, { status: 500 })
   }
 }
-

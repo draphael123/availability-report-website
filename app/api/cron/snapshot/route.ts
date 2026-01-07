@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server'
-import { kv } from '@vercel/kv'
-import { fetchSheetData } from '@/lib/sheet-fetcher'
-import { parseSheetRows } from '@/lib/sheet-parser'
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 // This endpoint is called by Vercel Cron daily
 // Configure in vercel.json
 
 export async function GET(request: Request) {
+  // Check if Vercel KV is configured
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return NextResponse.json({ 
+      error: 'Vercel KV not configured',
+      message: 'This endpoint requires Vercel KV to store snapshots.'
+    }, { status: 503 })
+  }
+
   // Verify the request is from Vercel Cron (in production)
   const authHeader = request.headers.get('authorization')
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -14,6 +22,11 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Dynamic imports to avoid build-time errors
+    const { kv } = await import('@vercel/kv')
+    const { fetchSheetData } = await import('@/lib/sheet-fetcher')
+    const { parseSheetRows } = await import('@/lib/sheet-parser')
+
     // Fetch current data from Google Sheets
     const result = await fetchSheetData()
     
@@ -88,4 +101,3 @@ function calculateAvgDaysOut(data: { daysOut: number | null }[]): number | null 
   const sum = withDaysOut.reduce((acc, r) => acc + r.daysOut!, 0)
   return Math.round((sum / withDaysOut.length) * 10) / 10
 }
-
