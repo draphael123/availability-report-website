@@ -14,6 +14,7 @@ import { ErrorState } from '@/components/error-state'
 import { LoadingSkeleton } from '@/components/loading-skeleton'
 import { HeroSection } from '@/components/hero-section'
 import { AlertsPanel } from '@/components/alerts-panel'
+import { HistoricalComparison } from '@/components/historical-comparison'
 import { ExportMenu } from '@/components/export-menu'
 import { FilterPresets } from '@/components/filter-presets'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -312,6 +313,9 @@ export default function Dashboard() {
 
           {/* Hero Section with Stats */}
           <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
+
+          {/* Historical Comparison */}
+          <HistoricalComparison />
 
           {/* Alerts Panel */}
           {alerts.length > 0 && (
