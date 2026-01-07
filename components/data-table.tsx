@@ -61,6 +61,16 @@ function getScoreColor(score: number | null): string {
   return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
 }
 
+// Category type badge colors
+function getCategoryTypeBadge(categoryType: string): string {
+  switch (categoryType) {
+    case 'HRT': return 'badge-hrt'
+    case 'TRT': return 'badge-trt'
+    case 'Provider': return 'badge-provider'
+    default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+  }
+}
+
 // Category badge colors (deterministic based on string)
 const categoryColors = [
   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -87,7 +97,23 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
 
   // Build columns dynamically from headers
   const columns = useMemo<ColumnDef<ParsedSheetRow>[]>(() => {
-    return headers.map((header): ColumnDef<ParsedSheetRow> => {
+    // Add category type column first
+    const typeColumn: ColumnDef<ParsedSheetRow> = {
+      accessorFn: (row) => row.categoryType,
+      id: 'Type',
+      header: 'Type',
+      cell: ({ row }) => {
+        const type = row.original.categoryType
+        if (type === 'all') return <span className="text-muted-foreground">-</span>
+        return (
+          <Badge variant="secondary" className={cn('font-medium', getCategoryTypeBadge(type))}>
+            {type}
+          </Badge>
+        )
+      },
+    }
+
+    const headerColumns = headers.map((header): ColumnDef<ParsedSheetRow> => {
       const lowerHeader = header.toLowerCase()
       
       // Special handling for specific columns
@@ -165,8 +191,20 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
           cell: ({ row }) => {
             const days = row.original.daysOut
             return (
-              <span className="tabular-nums">
-                {days !== null ? days : <span className="text-muted-foreground">-</span>}
+              <span className="tabular-nums font-medium">
+                {days !== null ? (
+                  <span className={cn(
+                    'px-2 py-0.5 rounded',
+                    days <= 7 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    days <= 14 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    days <= 30 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                  )}>
+                    {days}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </span>
             )
           },
@@ -186,7 +224,7 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
                 href={value}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline flex items-center gap-1"
+                className="text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -206,7 +244,7 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
             const value = row.original.raw[header]
             if (!value) return <span className="text-muted-foreground">-</span>
             return (
-              <span className="text-destructive text-sm">
+              <span className="text-destructive text-sm font-medium">
                 {value.length > 30 ? value.substring(0, 30) + '...' : value}
               </span>
             )
@@ -240,6 +278,8 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
         },
       }
     })
+
+    return [typeColumn, ...headerColumns]
   }, [headers])
 
   const table = useReactTable({
@@ -263,7 +303,7 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
       {/* Table toolbar */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {data.length} total rows
+          <span className="font-semibold text-foreground">{data.length}</span> total rows
         </div>
         
         <DropdownMenu>
@@ -288,7 +328,7 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -313,7 +353,7 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
                   key={row.id}
                   onClick={() => onRowClick(row.original)}
                   className={cn(
-                    'cursor-pointer',
+                    'cursor-pointer transition-colors',
                     row.original.hasError && 'row-error'
                   )}
                 >
@@ -363,8 +403,8 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
+            Page <span className="font-medium text-foreground">{table.getState().pagination.pageIndex + 1}</span> of{' '}
+            <span className="font-medium text-foreground">{table.getPageCount()}</span>
           </span>
           
           <div className="flex items-center gap-1">
@@ -410,4 +450,3 @@ export function DataTable({ data, headers, onRowClick }: DataTableProps) {
     </div>
   )
 }
-

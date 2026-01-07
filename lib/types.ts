@@ -5,6 +5,11 @@
 export type SheetRow = Record<string, string>
 
 /**
+ * Category types for filtering
+ */
+export type CategoryType = 'all' | 'HRT' | 'TRT' | 'Provider'
+
+/**
  * Parsed/normalized row with typed fields
  * Retains raw strings but adds parsed numeric/date fields
  */
@@ -19,6 +24,9 @@ export interface ParsedSheetRow {
   
   // Convenience flags
   hasError: boolean
+  
+  // Category type (derived from Category column)
+  categoryType: CategoryType
   
   // Index for stable identification
   rowIndex: number
@@ -42,6 +50,7 @@ export interface SheetDataResponse {
  */
 export interface FilterState {
   globalSearch: string
+  categoryType: CategoryType
   category: string | null
   location: string | null
   daysOutMin: number | null
@@ -63,3 +72,30 @@ export interface CategoryChartData {
   avgDaysOut: number | null
 }
 
+/**
+ * Weekly trend data point
+ */
+export interface WeeklyTrendData {
+  date: string
+  dateLabel: string
+  totalRows: number
+  avgDaysOut: number | null
+  errorCount: number
+  hrtCount: number
+  trtCount: number
+  providerCount: number
+}
+
+/**
+ * Summary statistics
+ */
+export interface SummaryStats {
+  totalRows: number
+  totalCategories: number
+  avgDaysOut: number | null
+  errorRate: number
+  hrtCount: number
+  trtCount: number
+  providerCount: number
+  lastWeekTrend: WeeklyTrendData[]
+}

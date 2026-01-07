@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { FilterState } from '@/lib/types'
+import { FilterState, CategoryType } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface FiltersProps {
   filters: FilterState
@@ -20,6 +21,13 @@ interface FiltersProps {
   categories: string[]
   locations: string[]
 }
+
+const categoryTypeOptions: { value: CategoryType; label: string; color: string }[] = [
+  { value: 'all', label: 'All Types', color: 'bg-gray-100 text-gray-700' },
+  { value: 'HRT', label: 'HRT', color: 'badge-hrt' },
+  { value: 'TRT', label: 'TRT', color: 'badge-trt' },
+  { value: 'Provider', label: 'Provider', color: 'badge-provider' },
+]
 
 export function Filters({
   filters,
@@ -37,6 +45,7 @@ export function Filters({
   const clearFilters = () => {
     onFiltersChange({
       globalSearch: '',
+      categoryType: 'all',
       category: null,
       location: null,
       daysOutMin: null,
@@ -47,6 +56,7 @@ export function Filters({
 
   const hasActiveFilters =
     filters.globalSearch ||
+    filters.categoryType !== 'all' ||
     filters.category ||
     filters.location ||
     filters.daysOutMin !== null ||
@@ -78,6 +88,25 @@ export function Filters({
             Clear filters
           </Button>
         )}
+      </div>
+
+      {/* Category Type buttons */}
+      <div className="flex flex-wrap gap-2">
+        {categoryTypeOptions.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => updateFilter('categoryType', option.value)}
+            className={cn(
+              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+              filters.categoryType === option.value
+                ? 'ring-2 ring-primary ring-offset-2 shadow-md scale-105'
+                : 'hover:scale-102 opacity-70 hover:opacity-100',
+              option.color
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {/* Filter row */}
@@ -171,7 +200,7 @@ export function Filters({
 
         {/* Active filter indicator */}
         {hasActiveFilters && (
-          <div className="flex items-center gap-1.5 text-xs text-primary">
+          <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
             <Filter className="h-3.5 w-3.5" />
             <span>Filters active</span>
           </div>
@@ -180,4 +209,3 @@ export function Filters({
     </div>
   )
 }
-
