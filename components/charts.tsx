@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import {
   BarChart,
   Bar,
@@ -8,18 +9,14 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
-  Legend,
-  AreaChart,
-  Area,
   Cell,
   PieChart,
   Pie,
+  Legend,
 } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CategoryChartData, WeeklyTrendData, CategoryType, ParsedSheetRow } from '@/lib/types'
-import { calculateCategoryChartData, calculateLocationChartData } from '@/lib/sheet-parser'
+import { calculateLocationChartData } from '@/lib/sheet-parser'
 
 interface ChartsProps {
   data: CategoryChartData[]
@@ -56,7 +53,7 @@ const RAINBOW = [
   '#6366f1', // indigo
 ]
 
-export function Charts({ data, locationData, weeklyTrend, categoryType, filteredRows }: ChartsProps) {
+export function Charts({ data, locationData, categoryType, filteredRows }: ChartsProps) {
   // Calculate location data if not provided but we have filtered rows
   const locationChartData = locationData || (filteredRows ? calculateLocationChartData(filteredRows) : [])
   
@@ -64,13 +61,104 @@ export function Charts({ data, locationData, weeklyTrend, categoryType, filtered
   const topData = data.slice(0, 10)
   const topLocationData = locationChartData.slice(0, 10)
 
-  // Get the main color based on category type
-  const mainColor = categoryType === 'HRT' ? COLORS.hrt 
-    : categoryType === 'TRT' ? COLORS.trt 
-    : categoryType === 'Provider' ? COLORS.provider 
-    : COLORS.primary
-
   const categoryLabel = categoryType === 'all' ? 'All Categories' : categoryType
+
+  // Calculate wait time distribution from filtered rows
+  const waitTimeDistribution = useMemo(() => {
+    if (!filteredRows) return []
+    
+    const distribution = [
+      { range: '<2 days', count: 0, color: '#10b981' },
+      { range: '2-4 days', count: 0, color: '#3b82f6' },
+      { range: '4-7 days', count: 0, color: '#f59e0b' },
+      { range: '7-14 days', count: 0, color: '#f97316' },
+      { range: '14+ days', count: 0, color: '#ef4444' },
+    ]
+    
+    filteredRows.forEach(row => {
+      if (row.daysOut === null) return
+      if (row.daysOut < 2) distribution[0].count++
+      else if (row.daysOut < 4) distribution[1].count++
+      else if (row.daysOut < 7) distribution[2].count++
+      else if (row.daysOut < 14) distribution[3].count++
+      else distribution[4].count++
+    })
+    
+    return distribution
+  }, [filteredRows])
+
+  // Calculate category type breakdown (HRT/TRT/Provider)
+  const categoryTypeBreakdown = useMemo(() => {
+    if (!filteredRows) return []
+    
+    const hrt = filteredRows.filter(r => r.categoryType === 'HRT').length
+    const trt = filteredRows.filter(r => r.categoryType === 'TRT').length
+    const provider = filteredRows.filter(r => r.categoryType === 'Provider').length
+    const other = filteredRows.filter(r => r.categoryType === 'all').length
+    
+    return [
+      { name: 'HRT', value: hrt, color: COLORS.hrt },
+      { name: 'TRT', value: trt, color: COLORS.trt },
+      { name: 'Provider', value: provider, color: COLORS.provider },
+      ...(other > 0 ? [{ name: 'Other', value: other, color: '#6b7280' }] : []),
+    ].filter(d => d.value > 0)
+  }, [filteredRows])
+
+  // Calculate avg days out by location
+  const avgDaysOutByLocation = useMemo(() => {
+    if (!filteredRows) return []
+    
+    const locationMap = new Map<string, { sum: number; count: number }>()
+    
+    filteredRows.forEach(row => {
+      const location = row.raw['Location'] || 'Unknown'
+      if (row.daysOut === null) return
+      
+      if (!locationMap.has(location)) {
+        locationMap.set(location, { sum: 0, count: 0 })
+      }
+      const data = locationMap.get(location)!
+      data.sum += row.daysOut
+      data.count++
+    })
+    
+    return Array.from(locationMap.entries())
+      .map(([location, data]) => ({
+        location,
+        avgDaysOut: Math.round((data.sum / data.count) * 10) / 10,
+        count: data.count,
+      }))
+      .sort((a, b) => b.avgDaysOut - a.avgDaysOut)
+      .slice(0, 10)
+  }, [filteredRows])
+
+  // Calculate error breakdown by category
+  const errorsByCategory = useMemo(() => {
+    if (!filteredRows) return []
+    
+    const errorMap = new Map<string, { errors: number; total: number }>()
+    
+    filteredRows.forEach(row => {
+      const category = row.raw['Category'] || 'Unknown'
+      
+      if (!errorMap.has(category)) {
+        errorMap.set(category, { errors: 0, total: 0 })
+      }
+      const data = errorMap.get(category)!
+      data.total++
+      if (row.hasError) data.errors++
+    })
+    
+    return Array.from(errorMap.entries())
+      .filter(([, data]) => data.errors > 0)
+      .map(([category, data]) => ({
+        category,
+        errors: data.errors,
+        errorRate: Math.round((data.errors / data.total) * 100),
+      }))
+      .sort((a, b) => b.errors - a.errors)
+      .slice(0, 10)
+  }, [filteredRows])
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -133,6 +221,161 @@ export function Charts({ data, locationData, weeklyTrend, categoryType, filtered
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Wait Time Distribution */}
+      <Card className="card-hover glass">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-emerald-500 to-blue-500" />
+            <span className="bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">Wait Time Distribution</span>
+          </CardTitle>
+          <CardDescription>
+            Number of links by wait time range
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={waitTimeDistribution}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="range" tick={{ fontSize: 11 }} />
+                <YAxis />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    backdropFilter: 'blur(8px)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                  }}
+                  formatter={(value: number) => [value, 'Links']}
+                />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]} name="Links">
+                  {waitTimeDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Average Days Out by Category */}
+      <Card className="card-hover glass">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+            <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Avg Days Out by Category</span>
+          </CardTitle>
+          <CardDescription>
+            Average wait time per category ({categoryLabel}, top 10)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={topData.filter(d => d.avgDaysOut !== null)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="daysOutGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={COLORS.secondary} stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={1}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                <XAxis type="number" />
+                <YAxis
+                  dataKey="category"
+                  type="category"
+                  width={120}
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) =>
+                    value.length > 15 ? value.substring(0, 15) + '...' : value
+                  }
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    backdropFilter: 'blur(8px)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                  }}
+                  labelStyle={{ fontWeight: 600 }}
+                  formatter={(value: number) => [value.toFixed(1), 'Avg Days Out']}
+                />
+                <Bar
+                  dataKey="avgDaysOut"
+                  fill="url(#daysOutGradient)"
+                  radius={[0, 8, 8, 0]}
+                  name="Avg Days Out"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Category Type Breakdown (Pie Chart) */}
+      <Card className="card-hover glass">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full gradient-rainbow" />
+            <span className="text-gradient-primary">Category Type Breakdown</span>
+          </CardTitle>
+          <CardDescription>
+            Distribution of HRT, TRT, and Provider links
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px]">
+            {categoryTypeBreakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryTypeBreakdown}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey="value"
+                    strokeWidth={2}
+                    stroke="rgba(255,255,255,0.2)"
+                  >
+                    {categoryTypeBreakdown.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      backdropFilter: 'blur(8px)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    }}
+                    formatter={(value: number) => [value, 'Links']}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                No category type data available
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -206,283 +449,145 @@ export function Charts({ data, locationData, weeklyTrend, categoryType, filtered
         </CardContent>
       </Card>
 
-      {/* Average Days Out by Category */}
+      {/* Avg Days Out by Location */}
       <Card className="card-hover glass">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
-            <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Avg Days Out by Category</span>
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-rose-500 to-orange-500" />
+            <span className="bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent">Avg Wait by Location</span>
           </CardTitle>
           <CardDescription>
-            Average wait time per category ({categoryLabel}, top 10)
+            Locations with longest average wait times
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={topData.filter(d => d.avgDaysOut !== null)}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-              >
-                <defs>
-                  <linearGradient id="daysOutGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={COLORS.secondary} stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
-                <XAxis type="number" />
-                <YAxis
-                  dataKey="category"
-                  type="category"
-                  width={120}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) =>
-                    value.length > 15 ? value.substring(0, 15) + '...' : value
-                  }
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(8px)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                  }}
-                  labelStyle={{ fontWeight: 600 }}
-                  formatter={(value: number) => [value.toFixed(1), 'Avg Days Out']}
-                />
-                <Bar
-                  dataKey="avgDaysOut"
-                  fill="url(#daysOutGradient)"
-                  radius={[0, 8, 8, 0]}
-                  name="Avg Days Out"
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {avgDaysOutByLocation.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={avgDaysOutByLocation}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                >
+                  <defs>
+                    <linearGradient id="locationAvgGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.8}/>
+                      <stop offset="100%" stopColor="#f97316" stopOpacity={1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                  <XAxis type="number" />
+                  <YAxis
+                    dataKey="location"
+                    type="category"
+                    width={120}
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) =>
+                      value.length > 15 ? value.substring(0, 15) + '...' : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      backdropFilter: 'blur(8px)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    }}
+                    formatter={(value: number, name, props) => {
+                      if (name === 'avgDaysOut') return [`${value} days`, 'Avg Wait']
+                      return [value, name]
+                    }}
+                  />
+                  <Bar
+                    dataKey="avgDaysOut"
+                    fill="url(#locationAvgGradient)"
+                    radius={[0, 8, 8, 0]}
+                    name="Avg Days Out"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                No location data available
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Weekly Trend - Total Rows */}
+      {/* Errors by Category */}
       <Card className="card-hover glass">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" />
-            <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Last 7 Days - Row Count</span>
+            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-red-500 to-pink-500" />
+            <span className="bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">Errors by Category</span>
           </CardTitle>
           <CardDescription>
-            Number of rows scraped each day
+            Categories with the most errors
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={weeklyTrend}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.success} stopOpacity={0.6}/>
-                    <stop offset="100%" stopColor={COLORS.success} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(8px)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="totalRows"
-                  stroke={COLORS.success}
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorTotal)"
-                  name="Total Rows"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weekly Trend - By Category Type */}
-      <Card className="card-hover glass">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full gradient-rainbow" />
-            <span className="text-gradient-primary">Last 7 Days - By Type</span>
-          </CardTitle>
-          <CardDescription>
-            Breakdown by HRT, TRT, and Provider
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={weeklyTrend}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(8px)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="hrtCount"
-                  stroke={COLORS.hrt}
-                  strokeWidth={3}
-                  dot={{ fill: COLORS.hrt, strokeWidth: 0, r: 5 }}
-                  activeDot={{ r: 8, fill: COLORS.hrt }}
-                  name="HRT"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="trtCount"
-                  stroke={COLORS.trt}
-                  strokeWidth={3}
-                  dot={{ fill: COLORS.trt, strokeWidth: 0, r: 5 }}
-                  activeDot={{ r: 8, fill: COLORS.trt }}
-                  name="TRT"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="providerCount"
-                  stroke={COLORS.provider}
-                  strokeWidth={3}
-                  dot={{ fill: COLORS.provider, strokeWidth: 0, r: 5 }}
-                  activeDot={{ r: 8, fill: COLORS.provider }}
-                  name="Provider"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weekly Trend - Avg Days Out */}
-      <Card className="card-hover glass">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
-            <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Last 7 Days - Avg Days Out</span>
-          </CardTitle>
-          <CardDescription>
-            Average days out trend
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={weeklyTrend.filter(d => d.avgDaysOut !== null)}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorDaysOut" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.warning} stopOpacity={0.6}/>
-                    <stop offset="50%" stopColor={COLORS.orange} stopOpacity={0.3}/>
-                    <stop offset="100%" stopColor={COLORS.orange} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(8px)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                  }}
-                  formatter={(value: number) => [value?.toFixed(1), 'Avg Days Out']}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="avgDaysOut"
-                  stroke={COLORS.warning}
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorDaysOut)"
-                  name="Avg Days Out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weekly Trend - Errors */}
-      <Card className="card-hover glass">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-gradient-to-r from-rose-500 to-pink-500" />
-            <span className="bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">Last 7 Days - Errors</span>
-          </CardTitle>
-          <CardDescription>
-            Number of errors detected each day
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={weeklyTrend}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.accent} stopOpacity={1}/>
-                    <stop offset="100%" stopColor={COLORS.hrt} stopOpacity={0.8}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(8px)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                  }}
-                />
-                <Bar
-                  dataKey="errorCount"
-                  fill="url(#errorGradient)"
-                  radius={[8, 8, 0, 0]}
-                  name="Errors"
-                />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-[350px]">
+            {errorsByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={errorsByCategory}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                >
+                  <defs>
+                    <linearGradient id="errorBarGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
+                      <stop offset="100%" stopColor="#ec4899" stopOpacity={1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} opacity={0.2} />
+                  <XAxis type="number" />
+                  <YAxis
+                    dataKey="category"
+                    type="category"
+                    width={120}
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) =>
+                      value.length > 15 ? value.substring(0, 15) + '...' : value
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      backdropFilter: 'blur(8px)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    }}
+                    formatter={(value: number, name, props) => {
+                      const item = props.payload
+                      return [
+                        `${value} errors (${item.errorRate}% error rate)`,
+                        'Errors'
+                      ]
+                    }}
+                  />
+                  <Bar
+                    dataKey="errors"
+                    fill="url(#errorBarGradient)"
+                    radius={[0, 8, 8, 0]}
+                    name="Errors"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-emerald-500 font-medium">
+                ✓ No errors detected
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Summary stats */}
-      <Card className="md:col-span-2 card-hover glass">
+      <Card className="card-hover glass">
         <CardHeader>
           <CardTitle className="text-lg text-gradient-primary">Category Summary</CardTitle>
           <CardDescription>
