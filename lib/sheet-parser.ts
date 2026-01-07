@@ -76,32 +76,46 @@ function hasError(row: SheetRow): boolean {
 }
 
 /**
- * Determine category type (HRT, TRT, or Provider) from category string
+ * Determine category type (HRT, TRT, or Provider) from row data
+ * Looks at the Name column for identifiers:
+ * - HRT: Name starts with "HRT"
+ * - TRT: Name starts with "TRT"
+ * - Provider: Name contains "provider"
  */
-function determineCategoryType(category: string | undefined): CategoryType {
-  if (!category) return 'all'
+function determineCategoryType(row: SheetRow): CategoryType {
+  // Get the Name value - try different possible column names
+  const name = row['Name'] || row['name'] || row['NAME'] || ''
+  const upperName = name.toUpperCase().trim()
   
-  const upper = category.toUpperCase()
-  
-  if (upper.includes('HRT') || upper.includes('HORMONE REPLACEMENT') || upper.includes('ESTROGEN') || upper.includes('PROGESTERONE')) {
+  // Check if name starts with HRT
+  if (upperName.startsWith('HRT')) {
     return 'HRT'
   }
   
-  if (upper.includes('TRT') || upper.includes('TESTOSTERONE') || upper.includes('T REPLACEMENT')) {
+  // Check if name starts with TRT
+  if (upperName.startsWith('TRT')) {
     return 'TRT'
   }
   
-  if (upper.includes('PROVIDER') || upper.includes('DOCTOR') || upper.includes('PHYSICIAN') || upper.includes('NP') || upper.includes('PA')) {
+  // Check if name contains "provider"
+  if (upperName.includes('PROVIDER')) {
     return 'Provider'
   }
   
-  // Default based on common patterns
-  if (upper.includes('MALE') || upper.includes('MEN')) {
+  // Fallback: also check Category column if Name didn't match
+  const category = row['Category'] || row['category'] || ''
+  const upperCategory = category.toUpperCase().trim()
+  
+  if (upperCategory.startsWith('HRT') || upperCategory.includes('HRT')) {
+    return 'HRT'
+  }
+  
+  if (upperCategory.startsWith('TRT') || upperCategory.includes('TRT')) {
     return 'TRT'
   }
   
-  if (upper.includes('FEMALE') || upper.includes('WOMEN')) {
-    return 'HRT'
+  if (upperCategory.includes('PROVIDER')) {
+    return 'Provider'
   }
   
   return 'all'
@@ -115,7 +129,6 @@ export function parseSheetRows(rows: SheetRow[]): ParsedSheetRow[] {
     const daysOutRaw = findColumnValue(row, DAYS_OUT_COLUMNS)
     const availabilityScoreRaw = findColumnValue(row, AVAILABILITY_SCORE_COLUMNS)
     const scrapedAtRaw = findColumnValue(row, SCRAPED_AT_COLUMNS)
-    const category = findColumnValue(row, CATEGORY_COLUMNS)
     
     return {
       raw: row,
@@ -123,7 +136,7 @@ export function parseSheetRows(rows: SheetRow[]): ParsedSheetRow[] {
       availabilityScore: parseNumber(availabilityScoreRaw),
       scrapedAt: parseDate(scrapedAtRaw),
       hasError: hasError(row),
-      categoryType: determineCategoryType(category),
+      categoryType: determineCategoryType(row),
       rowIndex: index,
     }
   })
