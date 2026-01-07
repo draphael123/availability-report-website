@@ -48,7 +48,11 @@ export function AlertsPanel({ alerts, onDismiss }: AlertsPanelProps) {
   }
 
   const handleDismiss = (alertId: string) => {
-    setDismissed(prev => new Set([...prev, alertId]))
+    setDismissed(prev => {
+      const newSet = new Set(prev)
+      newSet.add(alertId)
+      return newSet
+    })
     onDismiss?.(alertId)
   }
 
