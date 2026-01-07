@@ -6,7 +6,7 @@ import { SheetDataResponse } from '@/lib/types'
 // Cache to reduce API calls
 let cachedData: SheetDataResponse | null = null
 let cacheTimestamp: number = 0
-const CACHE_TTL = 60 * 1000 // 60 seconds
+const CACHE_TTL = 10 * 1000 // 10 seconds for near real-time updates
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)

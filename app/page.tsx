@@ -41,8 +41,8 @@ const initialFilters: FilterState = {
   errorsOnly: false,
 }
 
-// Auto-refresh interval (30 seconds)
-const AUTO_REFRESH_INTERVAL = 30 * 1000
+// Auto-refresh interval (10 seconds for near real-time updates)
+const AUTO_REFRESH_INTERVAL = 10 * 1000
 
 export default function Dashboard() {
   const router = useRouter()
@@ -388,7 +388,7 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Auto-refreshes every 30s • Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">/</kbd> to search
+                      Auto-refreshes every 10s • Press <kbd className="px-1 py-0.5 bg-muted rounded text-xs">/</kbd> to search
                     </div>
                   </div>
 
@@ -456,7 +456,7 @@ export default function Dashboard() {
               <strong>Oncehub Availability Report</strong> — Automated monitoring for healthcare appointment availability
             </p>
             <p className="mt-1">
-              Data sourced from Google Sheets • Auto-refreshes every 30 seconds • 
+              Data sourced from Google Sheets • Auto-refreshes every 10 seconds • 
               {data?.source === 'api' ? ' Using Google Sheets API' : ' Using CSV export'}
             </p>
           </div>
