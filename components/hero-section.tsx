@@ -1,7 +1,8 @@
 'use client'
 
-import { Activity, Calendar, Clock, Sparkles, TrendingUp, Users, Zap } from 'lucide-react'
+import { Activity, Calendar, Clock, HelpCircle, Info, Sparkles, TrendingUp, Users, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SummaryStats } from '@/lib/types'
 
 interface HeroSectionProps {
@@ -46,6 +47,27 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
         )}
       </div>
 
+      {/* What is this tool? */}
+      <Card className="p-4 mb-6 glass border-blue-200/50 dark:border-blue-700/50 relative z-10">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/30">
+            <Info className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1">
+              What is this dashboard?
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This dashboard monitors <strong>Oncehub scheduling links</strong> to track appointment availability 
+              for healthcare services. It automatically scrapes scheduling pages every few hours to capture 
+              the <strong>"Days Out"</strong> (how far in advance the first available appointment is) and 
+              detects any errors or issues with booking links. This helps operations teams quickly identify 
+              which providers have long wait times or broken scheduling pages.
+            </p>
+          </div>
+        </div>
+      </Card>
+
       {/* Purpose Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 relative z-10">
         <Card className="p-4 glass card-hover border-purple-300/50 dark:border-purple-700/50 group">
@@ -55,7 +77,9 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
             </div>
             <div>
               <h3 className="font-semibold text-gradient-primary">Track Availability</h3>
-              <p className="text-sm text-muted-foreground">Monitor days out and first available appointments in real-time</p>
+              <p className="text-sm text-muted-foreground">
+                See how many days out the first available appointment is for each provider link
+              </p>
             </div>
           </div>
         </Card>
@@ -66,8 +90,10 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
               <TrendingUp className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Analyze Trends</h3>
-              <p className="text-sm text-muted-foreground">View weekly trends and category breakdowns with interactive charts</p>
+              <h3 className="font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">Spot Trends</h3>
+              <p className="text-sm text-muted-foreground">
+                Analyze weekly patterns and compare performance across HRT, TRT, and Provider categories
+              </p>
             </div>
           </div>
         </Card>
@@ -78,22 +104,71 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
               <Zap className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">Identify Issues</h3>
-              <p className="text-sm text-muted-foreground">Quickly spot errors and anomalies across all providers</p>
+              <h3 className="font-semibold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">Fix Issues Fast</h3>
+              <p className="text-sm text-muted-foreground">
+                Instantly identify broken links, scraping errors, or providers with unusually long wait times
+              </p>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Key Metrics Explanation */}
+      <Card className="p-4 mb-6 glass border-purple-200/50 dark:border-purple-700/50 relative z-10">
+        <h3 className="font-semibold text-gradient-primary mb-3 flex items-center gap-2">
+          <HelpCircle className="h-4 w-4 text-purple-500" />
+          Understanding the Metrics
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div className="flex items-start gap-2">
+            <div className="h-2 w-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 mt-1.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-foreground">Days Out</span>
+              <p className="text-muted-foreground text-xs">
+                Number of days until the first available appointment slot. Lower is better.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="h-2 w-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 mt-1.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-foreground">Availability Score</span>
+              <p className="text-muted-foreground text-xs">
+                Overall availability rating based on wait time and slot frequency.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="h-2 w-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 mt-1.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-foreground">Category Types</span>
+              <p className="text-muted-foreground text-xs">
+                HRT (Hormone), TRT (Testosterone), or Provider-specific scheduling links.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <div className="h-2 w-2 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 mt-1.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-foreground">Error Rate</span>
+              <p className="text-muted-foreground text-xs">
+                Percentage of links that failed to scrape due to errors or access issues.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Stats Row */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 relative z-10">
           <StatCard
             icon={<Activity className="h-4 w-4" />}
-            label="Total Rows"
+            label="Total Links"
             value={stats.totalRows.toLocaleString()}
             gradient="from-purple-500 to-pink-500"
             shadowColor="purple"
+            tooltip="Total number of scheduling links being monitored"
           />
           <StatCard
             icon={<Users className="h-4 w-4" />}
@@ -101,6 +176,7 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
             value={stats.totalCategories.toString()}
             gradient="from-blue-500 to-cyan-500"
             shadowColor="blue"
+            tooltip="Number of unique location/service categories"
           />
           <StatCard
             icon={<Clock className="h-4 w-4" />}
@@ -108,30 +184,35 @@ export function HeroSection({ stats, lastRefreshed }: HeroSectionProps) {
             value={stats.avgDaysOut?.toFixed(1) || 'N/A'}
             gradient="from-emerald-500 to-teal-500"
             shadowColor="emerald"
+            tooltip="Average wait time across all links (lower is better)"
           />
           <StatCard
             label="Error Rate"
             value={`${stats.errorRate}%`}
             gradient={stats.errorRate > 10 ? "from-red-500 to-orange-500" : "from-emerald-500 to-green-500"}
             shadowColor={stats.errorRate > 10 ? "red" : "emerald"}
+            tooltip="Percentage of links with scraping errors"
           />
           <StatCard
             label="HRT"
             value={stats.hrtCount.toLocaleString()}
             gradient="from-pink-500 to-rose-500"
             shadowColor="pink"
+            tooltip="Hormone Replacement Therapy scheduling links"
           />
           <StatCard
             label="TRT"
             value={stats.trtCount.toLocaleString()}
             gradient="from-blue-500 to-indigo-500"
             shadowColor="blue"
+            tooltip="Testosterone Replacement Therapy scheduling links"
           />
           <StatCard
             label="Provider"
             value={stats.providerCount.toLocaleString()}
             gradient="from-violet-500 to-purple-500"
             shadowColor="violet"
+            tooltip="General provider scheduling links"
           />
         </div>
       )}
@@ -144,13 +225,15 @@ function StatCard({
   label, 
   value, 
   gradient,
-  shadowColor
+  shadowColor,
+  tooltip
 }: { 
   icon?: React.ReactNode
   label: string
   value: string
   gradient: string
   shadowColor: string
+  tooltip?: string
 }) {
   const shadowClasses: Record<string, string> = {
     purple: 'shadow-purple-500/20 hover:shadow-purple-500/40',
@@ -162,8 +245,8 @@ function StatCard({
     orange: 'shadow-orange-500/20 hover:shadow-orange-500/40',
   }
 
-  return (
-    <div className={`rounded-xl glass p-3 transition-all duration-300 hover:-translate-y-1 shadow-lg ${shadowClasses[shadowColor] || ''}`}>
+  const content = (
+    <div className={`rounded-xl glass p-3 transition-all duration-300 hover:-translate-y-1 shadow-lg ${shadowClasses[shadowColor] || ''} cursor-help`}>
       <div className={`flex items-center gap-1.5 text-xs mb-1 bg-gradient-to-r ${gradient} bg-clip-text text-transparent font-medium`}>
         {icon && <span className={`bg-gradient-to-r ${gradient} bg-clip-text`}>{icon}</span>}
         <span>{label}</span>
@@ -173,4 +256,19 @@ function StatCard({
       </div>
     </div>
   )
+
+  if (tooltip) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {content}
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px]">
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return content
 }
