@@ -25,6 +25,8 @@ import { DataQuality } from '@/components/data-quality'
 import { PatientImpact } from '@/components/patient-impact'
 import { TimePatterns } from '@/components/time-patterns'
 import { ComparativeBenchmarks } from '@/components/comparative-benchmarks'
+import { ErrorDashboard } from '@/components/error-dashboard'
+import { PerformanceForecast } from '@/components/performance-forecast'
 import { ParsedSheetRow, SheetDataResponse } from '@/lib/types'
 
 export default function InsightsPage() {
@@ -195,6 +197,11 @@ export default function InsightsPage() {
               <span className="hidden sm:inline">Benchmarks</span>
               <span className="sm:hidden">Compare</span>
             </TabsTrigger>
+            <TabsTrigger value="forecast" className="gap-2 text-xs sm:text-sm">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Forecast</span>
+              <span className="sm:hidden">Forecast</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="sla">
@@ -231,6 +238,10 @@ export default function InsightsPage() {
 
           <TabsContent value="benchmarks">
             <ComparativeBenchmarks data={data.data} />
+          </TabsContent>
+
+          <TabsContent value="forecast">
+            <PerformanceForecast data={data.data} />
           </TabsContent>
         </Tabs>
       </div>
