@@ -1,41 +1,63 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Calendar } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Calendar, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { ParsedSheetRow } from '@/lib/types'
-
-interface HeatMapCalendarProps {
-  data: ParsedSheetRow[]
-}
 
 interface DayData {
-  date: Date
-  dateStr: string
-  count: number
+  date: string
+  dateObj: Date
+  totalRows: number
   errorCount: number
   avgDaysOut: number | null
   score: 'excellent' | 'good' | 'okay' | 'poor' | 'critical' | 'empty'
 }
 
-export function HeatMapCalendar({ data }: HeatMapCalendarProps) {
-  // Generate last 35 days of data
+interface HistorySummary {
+  date: string
+  summary: {
+    totalRows: number
+    hrtCount: number
+    trtCount: number
+    providerCount: number
+    errorCount: number
+    avgDaysOut: number | null
+  }
+}
+
+export function HeatMapCalendar() {
+  const [loading, setLoading] = useState(true)
+  const [historicalData, setHistoricalData] = useState<HistorySummary[]>([])
+
+  // Fetch historical data from API
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/history?range=month')
+        const data = await res.json()
+        if (data.summaries) {
+          setHistoricalData(data.summaries)
+        }
+      } catch (error) {
+        console.error('Failed to fetch history:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchHistory()
+  }, [])
+
+  // Generate calendar data for last 35 days
   const calendarData = useMemo(() => {
     const days: DayData[] = []
     const today = new Date()
     
-    // Group data by scraped date
-    const dataByDate = new Map<string, ParsedSheetRow[]>()
-    data.forEach(row => {
-      if (row.scrapedAt) {
-        const dateStr = row.scrapedAt.toISOString().split('T')[0]
-        if (!dataByDate.has(dateStr)) {
-          dataByDate.set(dateStr, [])
-        }
-        dataByDate.get(dateStr)!.push(row)
-      }
+    // Create a map of historical data by date
+    const historyMap = new Map<string, HistorySummary>()
+    historicalData.forEach(item => {
+      historyMap.set(item.date, item)
     })
 
     // Generate last 35 days (5 weeks)
@@ -44,34 +66,38 @@ export function HeatMapCalendar({ data }: HeatMapCalendarProps) {
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
       
-      const dayRows = dataByDate.get(dateStr) || []
-      const errorCount = dayRows.filter(r => r.hasError).length
-      const rowsWithDaysOut = dayRows.filter(r => r.daysOut !== null)
-      const avgDaysOut = rowsWithDaysOut.length > 0
-        ? rowsWithDaysOut.reduce((sum, r) => sum + r.daysOut!, 0) / rowsWithDaysOut.length
-        : null
-
-      // Calculate score
+      const historyItem = historyMap.get(dateStr)
+      
       let score: DayData['score'] = 'empty'
-      if (dayRows.length > 0) {
-        const errorRate = errorCount / dayRows.length
-        if (errorRate === 0 && avgDaysOut !== null && avgDaysOut <= 14) {
+      let totalRows = 0
+      let errorCount = 0
+      let avgDaysOut: number | null = null
+
+      if (historyItem) {
+        totalRows = historyItem.summary.totalRows
+        errorCount = historyItem.summary.errorCount
+        avgDaysOut = historyItem.summary.avgDaysOut
+
+        // Calculate score based on availability (avg days out) and error rate
+        const errorRate = totalRows > 0 ? errorCount / totalRows : 0
+        
+        if (avgDaysOut !== null && avgDaysOut <= 7 && errorRate < 0.05) {
           score = 'excellent'
-        } else if (errorRate <= 0.05 && (avgDaysOut === null || avgDaysOut <= 21)) {
+        } else if (avgDaysOut !== null && avgDaysOut <= 14 && errorRate < 0.10) {
           score = 'good'
-        } else if (errorRate <= 0.15 && (avgDaysOut === null || avgDaysOut <= 30)) {
+        } else if (avgDaysOut !== null && avgDaysOut <= 21 && errorRate < 0.20) {
           score = 'okay'
-        } else if (errorRate <= 0.25) {
+        } else if (avgDaysOut !== null && avgDaysOut <= 30) {
           score = 'poor'
-        } else {
+        } else if (totalRows > 0) {
           score = 'critical'
         }
       }
 
       days.push({
-        date,
-        dateStr,
-        count: dayRows.length,
+        date: dateStr,
+        dateObj: date,
+        totalRows,
         errorCount,
         avgDaysOut,
         score,
@@ -79,7 +105,7 @@ export function HeatMapCalendar({ data }: HeatMapCalendarProps) {
     }
 
     return days
-  }, [data])
+  }, [historicalData])
 
   // Group by weeks
   const weeks = useMemo(() => {
@@ -110,6 +136,8 @@ export function HeatMapCalendar({ data }: HeatMapCalendarProps) {
     empty: '',
   }
 
+  const daysWithData = calendarData.filter(d => d.score !== 'empty').length
+
   return (
     <Card className="glass">
       <CardHeader className="pb-3">
@@ -117,93 +145,126 @@ export function HeatMapCalendar({ data }: HeatMapCalendarProps) {
           <Calendar className="h-5 w-5 text-purple-500" />
           <span className="text-gradient-primary">Activity Calendar</span>
         </CardTitle>
-        <CardDescription>Daily performance over the last 5 weeks</CardDescription>
+        <CardDescription>
+          {daysWithData > 0 
+            ? `Daily availability over the last 5 weeks (${daysWithData} days tracked)`
+            : 'Historical snapshots will appear here as data is collected daily'
+          }
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-4 text-xs">
-          <span className="text-muted-foreground">Quality:</span>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-muted/50" />
-            <span className="text-muted-foreground">No data</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading history...</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-red-500" />
-            <span className="text-muted-foreground">Critical</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-amber-500" />
-            <span className="text-muted-foreground">Okay</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-emerald-500" />
-            <span className="text-muted-foreground">Excellent</span>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="space-y-1">
-          {/* Day headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map(day => (
-              <div key={day} className="text-[10px] text-center text-muted-foreground font-medium">
-                {day}
+        ) : (
+          <>
+            {/* Legend */}
+            <div className="flex items-center gap-4 mb-4 text-xs flex-wrap">
+              <span className="text-muted-foreground">Avg Wait Time:</span>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-muted/50" />
+                <span className="text-muted-foreground">No data</span>
               </div>
-            ))}
-          </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-emerald-500" />
+                <span className="text-muted-foreground">≤7 days</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-blue-500" />
+                <span className="text-muted-foreground">≤14 days</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-amber-500" />
+                <span className="text-muted-foreground">≤21 days</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-red-500" />
+                <span className="text-muted-foreground">30+ days</span>
+              </div>
+            </div>
 
-          {/* Weeks */}
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-1">
-              {week.map((day, dayIndex) => (
-                <Tooltip key={dayIndex}>
-                  <TooltipTrigger>
-                    <div
-                      className={cn(
-                        "aspect-square rounded-md transition-all duration-200 cursor-pointer",
-                        "hover:scale-110 hover:shadow-lg",
-                        scoreColors[day.score],
-                        day.score !== 'empty' && scoreShadows[day.score]
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    <div className="font-semibold">
-                      {day.date.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
-                    </div>
-                    {day.count > 0 ? (
-                      <div className="space-y-0.5 mt-1">
-                        <div>{day.count} links scraped</div>
-                        <div>{day.errorCount} errors ({Math.round((day.errorCount / day.count) * 100)}%)</div>
-                        {day.avgDaysOut !== null && (
-                          <div>Avg days out: {day.avgDaysOut.toFixed(1)}</div>
+            {/* Calendar Grid */}
+            <div className="space-y-1">
+              {/* Day headers */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {weekDays.map(day => (
+                  <div key={day} className="text-[10px] text-center text-muted-foreground font-medium">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Weeks */}
+              {weeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="grid grid-cols-7 gap-1">
+                  {week.map((day, dayIndex) => (
+                    <Tooltip key={dayIndex}>
+                      <TooltipTrigger>
+                        <div
+                          className={cn(
+                            "aspect-square rounded-md transition-all duration-200 cursor-pointer",
+                            "hover:scale-110 hover:shadow-lg",
+                            scoreColors[day.score],
+                            day.score !== 'empty' && scoreShadows[day.score]
+                          )}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        <div className="font-semibold">
+                          {day.dateObj.toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </div>
+                        {day.totalRows > 0 ? (
+                          <div className="space-y-0.5 mt-1">
+                            <div>{day.totalRows} links monitored</div>
+                            <div>{day.errorCount} errors ({Math.round((day.errorCount / day.totalRows) * 100)}%)</div>
+                            {day.avgDaysOut !== null && (
+                              <div className="font-medium">
+                                Avg wait: {day.avgDaysOut.toFixed(1)} days
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground">No snapshot taken</div>
                         )}
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground">No data</div>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
-        </div>
 
-        {/* Summary */}
-        <div className="flex items-center justify-between mt-4 pt-4 border-t text-xs text-muted-foreground">
-          <span>
-            {calendarData.filter(d => d.score === 'excellent' || d.score === 'good').length} good days
-          </span>
-          <span>
-            {calendarData.filter(d => d.score === 'poor' || d.score === 'critical').length} days need attention
-          </span>
-        </div>
+            {/* Info message if no data */}
+            {daysWithData === 0 && (
+              <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-center">
+                <p className="text-blue-600 dark:text-blue-400 font-medium">
+                  📊 Historical tracking is enabled
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Snapshots are taken daily at midnight UTC. Click "Snapshot Now" in Historical Comparison to create your first snapshot.
+                </p>
+              </div>
+            )}
+
+            {/* Summary */}
+            {daysWithData > 0 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t text-xs text-muted-foreground">
+                <span>
+                  {calendarData.filter(d => d.score === 'excellent' || d.score === 'good').length} days with good availability
+                </span>
+                <span>
+                  {calendarData.filter(d => d.score === 'poor' || d.score === 'critical').length} days need attention
+                </span>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   )
 }
-

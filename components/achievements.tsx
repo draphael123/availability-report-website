@@ -3,16 +3,17 @@
 import { useMemo } from 'react'
 import { 
   Trophy, 
-  Star, 
   Zap, 
-  Shield, 
   Target, 
   Flame,
   Award,
   Crown,
-  Gem,
+  Rocket,
   Medal,
-  Lock
+  Lock,
+  Clock,
+  TrendingDown,
+  Star
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -38,98 +39,110 @@ interface Achievement {
 export function Achievements({ data }: AchievementsProps) {
   const achievements = useMemo((): Achievement[] => {
     const totalRows = data.length
-    const errorCount = data.filter(r => r.hasError).length
-    const errorRate = totalRows > 0 ? (errorCount / totalRows) * 100 : 100
-    const successRate = 100 - errorRate
+    const rowsWithDaysOut = data.filter(r => r.daysOut !== null && !r.hasError)
     
-    const rowsWithDaysOut = data.filter(r => r.daysOut !== null)
+    // Calculate wait time distributions
+    const within2Days = rowsWithDaysOut.filter(r => r.daysOut! <= 2).length
+    const within7Days = rowsWithDaysOut.filter(r => r.daysOut! <= 7).length
+    const within14Days = rowsWithDaysOut.filter(r => r.daysOut! <= 14).length
+    const under30Days = rowsWithDaysOut.filter(r => r.daysOut! < 30).length
+    
     const avgDaysOut = rowsWithDaysOut.length > 0
       ? rowsWithDaysOut.reduce((sum, r) => sum + r.daysOut!, 0) / rowsWithDaysOut.length
       : null
 
-    const uniqueCategories = new Set(data.map(r => r.raw['Category']).filter(Boolean)).size
-    const uniqueLocations = new Set(data.map(r => r.raw['Location']).filter(Boolean)).size
+    // Calculate percentages
+    const validLinks = rowsWithDaysOut.length
+    const pctWithin7Days = validLinks > 0 ? (within7Days / validLinks) * 100 : 0
+    const pctWithin14Days = validLinks > 0 ? (within14Days / validLinks) * 100 : 0
+    const pctUnder30Days = validLinks > 0 ? (under30Days / validLinks) * 100 : 0
 
     return [
       {
-        id: 'first-perfect',
-        name: 'Perfect Day',
-        description: 'Achieve zero errors across all links',
-        icon: <Trophy className="h-5 w-5" />,
-        color: 'text-amber-500',
-        bgColor: 'from-amber-400 to-yellow-500',
-        unlocked: errorCount === 0,
-      },
-      {
         id: 'speed-demon',
         name: 'Speed Demon',
-        description: 'Average wait time under 7 days',
+        description: 'Average wait time under 5 days',
         icon: <Zap className="h-5 w-5" />,
         color: 'text-purple-500',
         bgColor: 'from-purple-400 to-pink-500',
-        unlocked: avgDaysOut !== null && avgDaysOut <= 7,
-      },
-      {
-        id: 'guardian',
-        name: 'Guardian',
-        description: 'Maintain 95%+ success rate',
-        icon: <Shield className="h-5 w-5" />,
-        color: 'text-emerald-500',
-        bgColor: 'from-emerald-400 to-teal-500',
-        unlocked: successRate >= 95,
-        progress: Math.min(successRate, 95),
-        maxProgress: 95,
-      },
-      {
-        id: 'centurion',
-        name: 'Centurion',
-        description: 'Monitor 100+ links',
-        icon: <Medal className="h-5 w-5" />,
-        color: 'text-blue-500',
-        bgColor: 'from-blue-400 to-cyan-500',
-        unlocked: totalRows >= 100,
-        progress: Math.min(totalRows, 100),
-        maxProgress: 100,
-      },
-      {
-        id: 'diversifier',
-        name: 'Diversifier',
-        description: 'Track 10+ different categories',
-        icon: <Target className="h-5 w-5" />,
-        color: 'text-orange-500',
-        bgColor: 'from-orange-400 to-red-400',
-        unlocked: uniqueCategories >= 10,
-        progress: Math.min(uniqueCategories, 10),
-        maxProgress: 10,
-      },
-      {
-        id: 'globe-trotter',
-        name: 'Globe Trotter',
-        description: 'Monitor 5+ different locations',
-        icon: <Crown className="h-5 w-5" />,
-        color: 'text-violet-500',
-        bgColor: 'from-violet-400 to-indigo-500',
-        unlocked: uniqueLocations >= 5,
-        progress: Math.min(uniqueLocations, 5),
+        unlocked: avgDaysOut !== null && avgDaysOut < 5,
+        progress: avgDaysOut !== null ? Math.max(0, 5 - avgDaysOut) : 0,
         maxProgress: 5,
       },
       {
-        id: 'streak-master',
-        name: 'Streak Master',
-        description: 'Keep error rate under 10%',
-        icon: <Flame className="h-5 w-5" />,
-        color: 'text-rose-500',
-        bgColor: 'from-rose-400 to-pink-500',
-        unlocked: errorRate < 10,
+        id: 'week-warrior',
+        name: 'Week Warrior',
+        description: '50% of links available within 7 days',
+        icon: <Trophy className="h-5 w-5" />,
+        color: 'text-amber-500',
+        bgColor: 'from-amber-400 to-yellow-500',
+        unlocked: pctWithin7Days >= 50,
+        progress: Math.min(pctWithin7Days, 50),
+        maxProgress: 50,
       },
       {
-        id: 'diamond',
-        name: 'Diamond Status',
-        description: 'All criteria excellent simultaneously',
-        icon: <Gem className="h-5 w-5" />,
+        id: 'availability-ace',
+        name: 'Availability Ace',
+        description: '75% of links available within 7 days',
+        icon: <Star className="h-5 w-5" />,
+        color: 'text-emerald-500',
+        bgColor: 'from-emerald-400 to-teal-500',
+        unlocked: pctWithin7Days >= 75,
+        progress: Math.min(pctWithin7Days, 75),
+        maxProgress: 75,
+      },
+      {
+        id: 'instant-access',
+        name: 'Instant Access',
+        description: '10+ links available within 2 days',
+        icon: <Rocket className="h-5 w-5" />,
+        color: 'text-blue-500',
+        bgColor: 'from-blue-400 to-cyan-500',
+        unlocked: within2Days >= 10,
+        progress: Math.min(within2Days, 10),
+        maxProgress: 10,
+      },
+      {
+        id: 'no-long-waits',
+        name: 'No Long Waits',
+        description: '90% of links under 30 days',
+        icon: <Clock className="h-5 w-5" />,
+        color: 'text-orange-500',
+        bgColor: 'from-orange-400 to-red-400',
+        unlocked: pctUnder30Days >= 90,
+        progress: Math.min(pctUnder30Days, 90),
+        maxProgress: 90,
+      },
+      {
+        id: 'two-week-target',
+        name: '2-Week Target',
+        description: '60% of links available within 14 days',
+        icon: <Target className="h-5 w-5" />,
+        color: 'text-rose-500',
+        bgColor: 'from-rose-400 to-pink-500',
+        unlocked: pctWithin14Days >= 60,
+        progress: Math.min(pctWithin14Days, 60),
+        maxProgress: 60,
+      },
+      {
+        id: 'efficiency-expert',
+        name: 'Efficiency Expert',
+        description: 'Average wait time under 10 days',
+        icon: <TrendingDown className="h-5 w-5" />,
         color: 'text-cyan-500',
         bgColor: 'from-cyan-400 to-blue-500',
-        unlocked: errorCount === 0 && avgDaysOut !== null && avgDaysOut <= 14 && totalRows >= 50,
+        unlocked: avgDaysOut !== null && avgDaysOut < 10,
+        progress: avgDaysOut !== null ? Math.max(0, 10 - avgDaysOut) : 0,
+        maxProgress: 10,
+      },
+      {
+        id: 'availability-champion',
+        name: 'Champion',
+        description: '90% within 7 days & avg under 7 days',
+        icon: <Crown className="h-5 w-5" />,
+        color: 'text-violet-500',
+        bgColor: 'from-violet-400 to-purple-500',
+        unlocked: pctWithin7Days >= 90 && avgDaysOut !== null && avgDaysOut < 7,
       },
     ]
   }, [data])
@@ -145,14 +158,14 @@ export function Achievements({ data }: AchievementsProps) {
             <Award className="h-4 w-4 text-white" />
           </div>
           <span className="bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
-            Achievements
+            Availability Goals
           </span>
           <span className="ml-auto text-sm font-normal text-muted-foreground">
-            {unlockedCount}/{totalAchievements} unlocked
+            {unlockedCount}/{totalAchievements} achieved
           </span>
         </CardTitle>
         <CardDescription>
-          Earn badges by maintaining excellent performance
+          Earn badges by improving wait times
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -193,12 +206,13 @@ export function Achievements({ data }: AchievementsProps) {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {achievement.progress}/{achievement.maxProgress}
+                        {achievement.progress.toFixed(0)}/{achievement.maxProgress}
+                        {achievement.id.includes('pct') || achievement.id.includes('target') || achievement.id.includes('waits') || achievement.id.includes('warrior') || achievement.id.includes('ace') ? '%' : ''}
                       </p>
                     </div>
                   )}
                   {achievement.unlocked && (
-                    <p className="text-xs text-emerald-500 font-medium">✓ Unlocked!</p>
+                    <p className="text-xs text-emerald-500 font-medium">✓ Achieved!</p>
                   )}
                 </div>
               </TooltipContent>
@@ -209,4 +223,3 @@ export function Achievements({ data }: AchievementsProps) {
     </Card>
   )
 }
-

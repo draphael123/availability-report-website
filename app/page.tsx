@@ -359,7 +359,7 @@ export default function Dashboard() {
               {/* AI Insights & Heat Map */}
               <div className="grid gap-4 lg:grid-cols-2">
                 <AIInsights data={filteredData} categoryType={filters.categoryType} />
-                <HeatMapCalendar data={filteredData} />
+                <HeatMapCalendar />
               </div>
             </div>
           )}
