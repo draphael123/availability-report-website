@@ -351,6 +351,11 @@ export default function Dashboard() {
             <QuickStatsBar data={filteredData} stats={summaryStats} />
           )}
 
+          {/* Daily Summary - Best/Worst Wait Times (Most Important!) */}
+          {data && filteredData.length > 0 && (
+            <HistoricalComparison data={filteredData} />
+          )}
+
           {/* Hero Section with Stats */}
           <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
 
@@ -382,9 +387,6 @@ export default function Dashboard() {
               <VisualKPIs data={filteredData} />
             </div>
           )}
-
-          {/* Daily Changes Summary */}
-          <HistoricalComparison data={filteredData} />
 
           {/* Alerts Panel */}
           {alerts.length > 0 && (
