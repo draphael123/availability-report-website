@@ -20,6 +20,7 @@ import { FilterPresets } from '@/components/filter-presets'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BenchmarksTable } from '@/components/benchmarks-table'
 import { EmptyState } from '@/components/empty-state'
+import { SuggestionsBox } from '@/components/suggestions-box'
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
@@ -456,8 +457,13 @@ export default function Dashboard() {
           ) : null}
         </div>
 
+        {/* Suggestions Box */}
+        <div className="container py-8 relative z-10">
+          <SuggestionsBox />
+        </div>
+
         {/* Footer */}
-        <footer className="border-t mt-12 py-8 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 relative z-10">
+        <footer className="border-t mt-8 py-8 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-blue-500/5 relative z-10">
           <div className="container text-center">
             <p className="text-lg font-semibold text-gradient-primary">
               Oncehub Availability Report
