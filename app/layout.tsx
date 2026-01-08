@@ -1,10 +1,19 @@
 import type { Metadata, Viewport } from 'next'
-import { Outfit } from 'next/font/google'
+import { DM_Sans, Fraunces } from 'next/font/google'
 import './globals.css'
 
-const outfit = Outfit({ 
+// DM Sans - clean, friendly sans-serif
+const dmSans = DM_Sans({ 
   subsets: ['latin'],
-  variable: '--font-outfit',
+  variable: '--font-sans',
+  weight: ['400', '500', '600', '700'],
+})
+
+// Fraunces - distinctive serif for headings
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  weight: ['600', '700', '800'],
 })
 
 export const viewport: Viewport = {
@@ -46,11 +55,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={outfit.variable} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="light dark" />
       </head>
-      <body className={`${outfit.className} antialiased min-h-screen bg-background`}>
+      <body className={`${dmSans.className} antialiased min-h-screen bg-background`}>
         {children}
       </body>
     </html>
