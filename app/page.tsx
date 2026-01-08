@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText, CalendarDays, Zap } from 'lucide-react'
+import { RefreshCw, BarChart3, Table2, Trophy, Keyboard, GitCompare, FileText, CalendarDays, Zap, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -40,6 +40,10 @@ import { FavoritesPanel } from '@/components/favorites-panel'
 import { SLASettings } from '@/components/sla-settings'
 import { ComparisonMode } from '@/components/comparison-mode'
 import { ReportDownload } from '@/components/report-download'
+import { CommandPalette, useCommandPalette } from '@/components/command-palette'
+import { LinkGroupsManager, getLinkGroupById } from '@/components/link-groups'
+import { ComparePeriods } from '@/components/compare-periods'
+import { ScheduledReports } from '@/components/scheduled-reports'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
   getUniqueColumnValues, 
@@ -170,11 +174,14 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [fetchData])
 
+  // Command palette
+  const commandPalette = useCommandPalette()
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSearch: () => {
-      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
-      searchInput?.focus()
+      commandPalette.open()
     },
     onRefresh: () => fetchData(true),
     onExport: () => {
@@ -322,8 +329,44 @@ export default function Dashboard() {
     )
   }
 
+  // Handle command palette filter application
+  const handleCommandFilter = useCallback((filter: { type: string; value: string }) => {
+    if (filter.type === 'clear') {
+      setFilters(initialFilters)
+    } else if (filter.type === 'categoryType') {
+      setFilters(prev => ({ ...prev, categoryType: filter.value as any }))
+    } else if (filter.type === 'errorsOnly') {
+      setFilters(prev => ({ ...prev, errorsOnly: filter.value === 'true' }))
+    }
+  }, [])
+
+  // Filter by link group
+  const handleFilterByGroup = useCallback((groupId: string | null) => {
+    setActiveGroupId(groupId)
+  }, [])
+
+  // Apply group filter to data
+  const groupFilteredData = useMemo(() => {
+    if (!activeGroupId) return filteredData
+    const group = getLinkGroupById(activeGroupId)
+    if (!group) return filteredData
+    return filteredData.filter(row => group.links.includes(row.raw['Name'] || ''))
+  }, [filteredData, activeGroupId])
+
   return (
     <TooltipProvider>
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        data={data?.data}
+        onRefresh={() => fetchData(true)}
+        onExport={() => downloadCSV(filteredData, data?.headers || [])}
+        onToggleTheme={() => document.documentElement.classList.toggle('dark')}
+        onSelectLink={handleRowClick}
+        onApplyFilter={handleCommandFilter}
+      />
+
       {/* Confetti celebration */}
       <Confetti active={confettiActive} />
       
@@ -336,6 +379,18 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-2">
             <DataFreshness lastRefreshed={lastRefreshed} isLoading={isLoading} />
             <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={commandPalette.open}
+                className="gap-2 hidden sm:flex"
+              >
+                <Search className="h-4 w-4" />
+                <span className="text-muted-foreground">Quick Actions</span>
+                <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -478,6 +533,10 @@ export default function Dashboard() {
                     <CalendarDays className="h-4 w-4" />
                     Summaries
                   </TabsTrigger>
+                  <TabsTrigger value="compare" className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 transition-all">
+                    <GitCompare className="h-4 w-4" />
+                    Compare
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="table" className="space-y-4">
@@ -575,6 +634,10 @@ export default function Dashboard() {
                 <TabsContent value="summaries" className="space-y-4">
                   <DataSummaries data={filteredData} categoryType={filters.categoryType} />
                 </TabsContent>
+
+                <TabsContent value="compare" className="space-y-4">
+                  <ComparePeriods data={groupFilteredData} />
+                </TabsContent>
               </Tabs>
 
               {/* Row Detail Drawer */}
@@ -587,6 +650,20 @@ export default function Dashboard() {
             </>
           ) : null}
         </div>
+
+        {/* Link Groups & Scheduled Reports */}
+        {data && filteredData.length > 0 && (
+          <div className="container py-8 relative z-10">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <LinkGroupsManager 
+                data={data.data} 
+                onFilterByGroup={handleFilterByGroup}
+                activeGroupId={activeGroupId}
+              />
+              <ScheduledReports data={groupFilteredData} />
+            </div>
+          </div>
+        )}
 
         {/* Suggestions Box */}
         <div className="container py-8 relative z-10">

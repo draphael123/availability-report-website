@@ -288,3 +288,4 @@ export function AIInsights({ data, categoryType }: AIInsightsProps) {
 
 
 
+
