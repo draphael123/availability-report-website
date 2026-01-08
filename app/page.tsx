@@ -44,6 +44,8 @@ import { CommandPalette, useCommandPalette } from '@/components/command-palette'
 import { LinkGroupsManager, getLinkGroupById } from '@/components/link-groups'
 import { ComparePeriods } from '@/components/compare-periods'
 import { ScheduledReports } from '@/components/scheduled-reports'
+import { SmartFilters } from '@/components/smart-filters'
+import { AutomatedInsights } from '@/components/automated-insights'
 import { FilterState, ParsedSheetRow, SheetDataResponse, SummaryStats } from '@/lib/types'
 import { 
   getUniqueColumnValues, 
@@ -177,6 +179,8 @@ export default function Dashboard() {
   // Command palette
   const commandPalette = useCommandPalette()
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
+  const [activeSmartFilter, setActiveSmartFilter] = useState<string | null>(null)
+  const [smartFilteredData, setSmartFilteredData] = useState<ParsedSheetRow[] | null>(null)
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -343,15 +347,43 @@ export default function Dashboard() {
   // Filter by link group
   const handleFilterByGroup = useCallback((groupId: string | null) => {
     setActiveGroupId(groupId)
+    // Clear smart filter when group changes
+    setActiveSmartFilter(null)
+    setSmartFilteredData(null)
+  }, [])
+
+  // Handle smart filter application
+  const handleSmartFilter = useCallback((filtered: ParsedSheetRow[], filterName: string) => {
+    if (filterName) {
+      setSmartFilteredData(filtered)
+      setActiveSmartFilter(filterName)
+    } else {
+      setSmartFilteredData(null)
+      setActiveSmartFilter(null)
+    }
   }, [])
 
   // Apply group filter to data
   const groupFilteredData = useMemo(() => {
-    if (!activeGroupId) return filteredData
-    const group = getLinkGroupById(activeGroupId)
-    if (!group) return filteredData
-    return filteredData.filter(row => group.links.includes(row.raw['Name'] || ''))
-  }, [filteredData, activeGroupId])
+    let result = filteredData
+    
+    // Apply group filter
+    if (activeGroupId) {
+      const group = getLinkGroupById(activeGroupId)
+      if (group) {
+        result = result.filter(row => group.links.includes(row.raw['Name'] || ''))
+      }
+    }
+    
+    // Apply smart filter (overrides if set)
+    if (smartFilteredData) {
+      // Smart filter is already applied to base data, just use the intersection
+      const smartFilterIds = new Set(smartFilteredData.map(r => r.rowIndex))
+      result = result.filter(row => smartFilterIds.has(row.rowIndex))
+    }
+    
+    return result
+  }, [filteredData, activeGroupId, smartFilteredData])
 
   return (
     <TooltipProvider>
@@ -422,6 +454,25 @@ export default function Dashboard() {
 
           {/* Hero Section with Stats */}
           <HeroSection stats={summaryStats} lastRefreshed={lastRefreshed} />
+
+          {/* Smart Filters */}
+          {data && filteredData.length > 0 && (
+            <div className="p-4 rounded-lg border-2 bg-card">
+              <SmartFilters 
+                data={filteredData}
+                onApplyFilter={handleSmartFilter}
+                activeFilter={activeSmartFilter}
+              />
+            </div>
+          )}
+
+          {/* Automated Insights */}
+          {data && filteredData.length > 0 && (
+            <AutomatedInsights 
+              data={groupFilteredData}
+              categoryType={filters.categoryType}
+            />
+          )}
 
           {/* Gamification Section */}
           {data && filteredData.length > 0 && (
